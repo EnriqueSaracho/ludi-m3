@@ -1,13 +1,29 @@
 ---
 name: ludi-pages-search
 description: >-
-  Search results page: URL-gated results, filters, sort, GameCard grid. Navbar
-  submits here. Use when implementing /search or filter/sort UI.
+  Search page UI: empty state, filters, Load more, GameCard grid. Use when
+  fixing /search gating, filter URL sync, or results layout.
 ---
 
 # Ludi — search page
 
+> **Phase:** v1 shipped. Documents **current** `/search` UX. Default work: empty state, Load more, filter sheet—not navbar typeahead ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-data-search](../ludi-data-search/SKILL.md), [ludi-components-nav](../ludi-components-nav/SKILL.md), [ludi-components-game-card](../ludi-components-game-card/SKILL.md), [ludi-project](../ludi-project/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Search route | `src/app/search/page.tsx` |
+| Route loading fallback | `src/app/search/loading.tsx` |
+| In-page navigation pending | `src/components/search/SearchShell.tsx` (`useTransition` + `navigateSearch`) |
+| Client (filters, Load more, grid) | `src/components/search/SearchPageClient.tsx` |
+| Filter UI | `src/components/search/SearchFilters.tsx` |
+| Skeleton primitives | `src/components/loading/GameCardGridSkeleton.tsx` |
+| API | `src/app/api/search/route.ts`, `api/facets/route.ts` |
 
 ## Routing & gating
 
@@ -115,17 +131,20 @@ Accordion sections with **checkbox** lists (multi-select within section).
 
 - Component: [GameCard](../ludi-components-game-card/SKILL.md) with `showSave={true}`.
 - Layout: CSS grid `grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`, gap `gap-4`–`gap-6`.
-- Skeleton: 12 card placeholders while loading.
+- Skeleton: `GameCardGridSkeleton` (12 cards) while `SearchShell` `isPending` or route `loading.tsx` on cold navigation.
 - Empty: **“No games found for ‘{q}’”** + suggest fewer filters.
 - Error: inline retry banner.
 
 ### Result count
 
-`Showing {n} results` — if IGDB total unknown, show count of returned items + “Load more” or pagination.
+`Showing {n} results` — cumulative count of loaded items (append model). If `hasMore`, show **Load more** button.
 
-### Pagination
+### Pagination (Load more v1)
 
-URL `page=2`. Controls at bottom: Previous / Next. Disable prev on page 1.
+- **No Prev/Next** controls v1.
+- **Load more** at grid bottom: disabled when `!hasMore`; on click → increment URL `page` (e.g. `page=2`), fetch next slice, **append** cards to grid (preserve filters + `q`).
+- First page: `page=1` or omit (default).
+- Shareable URL reflects highest loaded `page`.
 
 ---
 
@@ -146,7 +165,7 @@ title: q ? `Results for “${q}” | Ludi` : 'Search | Ludi'
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
 - [ ] `/search` without `q` shows “Type to search” empty state (no cards).
 - [ ] New searches default to Main games filter unless URL overrides.
@@ -155,18 +174,16 @@ title: q ? `Results for “${q}” | Ludi` : 'Search | Ludi'
 - [ ] Quick filters update URL and results.
 - [ ] Sidebar filters work on desktop; sheet on mobile.
 - [ ] Sort changes ordering per data skill.
-- [ ] Pagination preserves filters + `q`.
+- [ ] **Load more** appends results; preserves filters + `q`.
+- [ ] Load more hidden/disabled when `!hasMore`.
+- [ ] No Prev/Next controls v1.
 - [ ] Guest save redirects to login.
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | Full page as spec; Enter-only nav search |
-| **v1.1** | Typeahead in navbar; language filter hardening |
-| **v2** | Saved searches; recent queries |
+Navbar typeahead, saved searches → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 

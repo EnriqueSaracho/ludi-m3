@@ -1,14 +1,26 @@
 ---
 name: ludi-components-game-card
 description: >-
-  Reusable GameCard for search, game detail carousels, home, and what's next.
-  Cover, title, rating, release date, content type, save-to-list. Use when
-  building any game grid or horizontal card row in Ludi.
+  GameCard + AddToListMenu. Use when fixing card layout, save menu, rating
+  pill, or list membership UX in grids and carousels.
 ---
 
 # Ludi — GameCard component
 
+> **Phase:** v1 shipped. Documents **current** `GameCard` / `AddToListMenu`. Default work: display bugs, save UX, event propagation—not price chip ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-data-game](../ludi-data-game/SKILL.md), [ludi-data-search](../ludi-data-search/SKILL.md), [ludi-pages-game](../ludi-pages-game/SKILL.md), [ludi-pages-search](../ludi-pages-search/SKILL.md), [ludi-components-nav](../ludi-components-nav/SKILL.md), [ludi-project](../ludi-project/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| GameCard | `src/components/game-card/GameCard.tsx` |
+| AddToListMenu | `src/components/game-card/AddToListMenu.tsx` |
+| Payload type | `src/lib/game/types.ts` (`GameCardPayload`) |
+| List actions | `src/lib/lists/actions.ts`, `queries.ts` |
 
 ## Purpose
 
@@ -54,7 +66,7 @@ type GameCardPayload = {
 │                 │
 │     cover       │  aspect-ratio 3/4
 │        ┌──────┐ │
-│        │★ 8.4 │ │  top-end: rating badge
+│        │8.4  │ │  top-end: rating pill (numeric, no star icon v1)
 │        └──────┘ │
 ├─────────────────┤
 │ Title (2 lines) │
@@ -86,7 +98,7 @@ Use **bookmark** icon (save to list semantics). `aria-label`: `Save to list` / `
 
 ### Rating badge
 
-Same as before: composite 0–10, [ludi-data-game](../ludi-data-game/SKILL.md) formula.
+**Minimal numeric pill** (e.g. `8.4`) — no star icon v1. Composite 0–10, one decimal, [ludi-data-game](../ludi-data-game/SKILL.md) formula. Hide when null.
 
 ### Sizes
 
@@ -105,6 +117,7 @@ Extract to `AddToListMenu` used by GameCard and game hero. Data rules: [ludi-dat
 |------|-------|
 | `igdbId` | Game to add |
 | `open`, `onOpenChange` | controlled from save button |
+| `onListsChange`, `onPlayStatusChange` | optional — game page syncs list + status state |
 | `anchorRef` | optional positioning |
 
 ### List rows in menu
@@ -112,10 +125,12 @@ Extract to `AddToListMenu` used by GameCard and game hero. Data rules: [ludi-dat
 | List kind | Check | Uncheck |
 |-----------|-------|---------|
 | **Custom** | Add `list_items` (respect `MAX_LIST_ITEMS`) | **Instant remove** — no confirm |
-| **Status** (`currently_playing`, `want_to_play`, `games_played`) | Add only via game page status (menu may show checked state) | **Disabled v1** — helper text: “Change status on game page” or link to game |
+| **Status** (`currently_playing`, `want_to_play`, `games_played`) | Sets `play_status` via `addToList` → `setPlayStatus`; only one status list checked | **Disabled** when checked — use hero **None**, **Remove from all lists**, or list page Remove |
 | **games_rated** | Auto when user rates | **Read-only** when present; remove on [list page](../ludi-pages-list/SKILL.md) if needed |
 
-**No confirm dialog** in AddToListMenu. Status clears use list page Remove ([ludi-pages-list](../ludi-pages-list/SKILL.md)) or hero **None**.
+**Remove from all lists** (destructive menu item): shown when on custom or status list; calls `unsaveGame` — clears custom + status membership and play status; keeps `games_rated` if rated. `router.refresh()` after status add / unsave for grid bookmark state.
+
+**No confirm dialog** in AddToListMenu. Status clears use list page Remove ([ludi-pages-list](../ludi-pages-list/SKILL.md)), hero **None**, or **Remove from all lists**.
 
 Toast on add: “Added to {list name}”.
 
@@ -157,7 +172,7 @@ Search: [ludi-data-search](../ludi-data-search/SKILL.md). Game page related: Que
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
 - [ ] Cover, title, rating, release date, content type render correctly.
 - [ ] Save opens list menu (authed) or login redirect (guest).
@@ -181,16 +196,14 @@ Search: [ludi-data-search](../ludi-data-search/SKILL.md). Game page related: Que
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Additions |
-|-------|-----------|
-| **v1** | All fields + save + AddToListMenu |
-| **v1.1** | Lowest price chip, platform icons |
-| **v2** | Quick-add to default list from card |
+Lowest price chip, platform icons on card → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 
-## Open questions
+## Resolved
 
-1. Star icon style for rating badge?
+| Topic | Decision |
+|-------|----------|
+| Rating badge style | **Numeric pill**, no star icon v1 ([ludi-decisions](../ludi-decisions/SKILL.md)) |

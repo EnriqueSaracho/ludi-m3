@@ -1,13 +1,29 @@
 ---
 name: ludi-auth
 description: >-
-  Supabase Auth pages: login, signup, password reset, OAuth, session, middleware.
-  Use when implementing /login, /signup, auth callbacks, or protected routes.
+  Supabase Auth: login, signup, reset, OAuth, middleware, verification gates.
+  Use when fixing auth flows, protected routes, profile bootstrap, or email gates.
 ---
 
 # Ludi — authentication
 
+> **Phase:** v1 shipped. Documents **current** auth behavior. Default work: fix redirects, gates, bootstrap, or session bugs—not new auth methods (see [v1.1 backlog](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-components-nav](../ludi-components-nav/SKILL.md), [ludi-pages-profile](../ludi-pages-profile/SKILL.md), [ludi-data-lists](../ludi-data-lists/SKILL.md), [ludi-project](../ludi-project/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Login / signup / forgot | `src/app/login/page.tsx`, `signup/page.tsx`, `forgot-password/page.tsx` |
+| OAuth + email confirm callback | `src/app/auth/callback/route.ts` |
+| Reset password | `src/app/auth/reset-password/page.tsx` |
+| Shared form UI | `src/components/auth/AuthForm.tsx` |
+| Validation helpers | `src/lib/auth/validation.ts` |
+| Session + route protection | `middleware.ts` → `src/lib/supabase/middleware.ts` |
+| Legal pages | `src/app/terms/page.tsx`, `privacy/page.tsx` |
 
 ## Provider
 
@@ -45,7 +61,7 @@ No custom auth UX patterns — centered card on neutral background, logo on top,
 | `next` | Post-auth redirect (validate: same-origin path only, no open redirect) |
 | `error` | OAuth error display |
 
-Default `next`: `/` or `/profile` after first signup (create profile row).
+Default `next`: **login** → `/` (unless `next` param); **signup** → `/profile` (create profile row).
 
 ---
 
@@ -62,8 +78,8 @@ Default `next`: `/` or `/profile` after first signup (create profile row).
 ### Signup (`/signup`)
 
 - Email, password, confirm password (client validate match, min length 8)
-- Username field → stored in `profiles.username` on success (see data-lists skill)
-- Terms checkbox optional v1
+- **No username field** — `profiles.username` derived from email local-part on bootstrap ([ludi-decisions](../ludi-decisions/SKILL.md))
+- Terms: single line below form — “By creating an account you agree to our [Terms](/terms) and [Privacy Policy](/privacy).” **No required checkbox.**
 - Submit → `signUp` + trigger profile creation (server action or DB trigger)
 - Google sign-up same OAuth flow
 - Footer: “Already have an account? Log in”
@@ -102,7 +118,7 @@ Public: `/`, `/search`, `/game/*`, `/list/{publicId}` — lists private by defau
 On first `auth.users` insert → create `profiles` row:
 
 - `id` = auth user id
-- `username` from signup or derived from email prefix
+- `username` derived from email local-part (sanitize 3–24 chars, `[a-zA-Z0-9_]`); uniqueness not enforced v1
 - `avatar_url` null
 - `preferred_country` from cookie `ludi_country` if set
 
@@ -116,7 +132,19 @@ Provision **system lists** via [ludi-data-lists](../ludi-data-lists/SKILL.md).
 
 ---
 
-## Acceptance criteria
+## Email verification gate (v1)
+
+Required before **comment** or **rate** (see [ludi-pages-game](../ludi-pages-game/SKILL.md) community).
+
+| Check | Detail |
+|-------|--------|
+| Server | Before `game_comments` insert / `game_ratings` upsert: user has `email_confirmed_at` set (Supabase Auth user). |
+| UI | Authed but unverified: disabled slider/textarea + copy “Verify your email to comment or rate” + link to resend confirmation (`resend` pattern per Supabase docs). |
+| Browse | Unverified users may still view game pages, search, lists. |
+
+---
+
+## Regression checks
 
 - [ ] Email login/signup works with `next` redirect.
 - [ ] Google OAuth round-trip works.
@@ -124,20 +152,22 @@ Provision **system lists** via [ludi-data-lists](../ludi-data-lists/SKILL.md).
 - [ ] Middleware blocks profile/settings for guests.
 - [ ] New user gets profile + system lists.
 - [ ] No open redirect on `next`.
+- [ ] Signup redirects to `/profile` by default.
+- [ ] Username auto-derived; no signup username field.
+- [ ] Terms line on signup (no checkbox).
+- [ ] Unverified users cannot comment/rate (server + UI).
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | Email + Google, pages above |
-| **v1.1** | Magic link, Discord |
-| **v2** | Email verification gate for comments |
+- Magic link, Discord OAuth, DB-unique `profiles.username` → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 
-## Open questions
+## Resolved
 
-1. Require email verification before comment/rate?
-2. Username uniqueness enforced at DB level?
+| Topic | Decision |
+|-------|----------|
+| Email before comment/rate | **Yes** — v1 ([ludi-decisions](../ludi-decisions/SKILL.md)) |
+| Username unique at DB | **v1.1** — derive on signup v1 |

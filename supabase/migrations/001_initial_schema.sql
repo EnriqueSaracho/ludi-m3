@@ -1,0 +1,1 @@
+-- See applied migration 001_initial_schema via Supabase MCP

@@ -1,13 +1,27 @@
 ---
 name: ludi-pages-home
 description: >-
-  Home page layout: hero, personalized rows, discovery sections. No unsolicited
-  game grids. Use when implementing / or landing experience.
+  Home page: hero search, library rows, discovery, recent. Use when fixing
+  home layout, discovery cache, or authed vs guest rows on `/`.
 ---
 
 # Ludi — home page
 
+> **Phase:** v1 shipped. Documents **current** `/` layout. Default work: row content, cache, CTAs—not ITAD deals row or personalized IGDB ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-components-nav](../ludi-components-nav/SKILL.md), [ludi-pages-search](../ludi-pages-search/SKILL.md), [ludi-components-game-card](../ludi-components-game-card/SKILL.md), [ludi-data-lists](../ludi-data-lists/SKILL.md), [ludi-data-game](../ludi-data-game/SKILL.md), [ludi-project](../ludi-project/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Home route | `src/app/page.tsx` |
+| Discovery slices (IGDB, 24h cache) | `src/lib/home/discovery.ts` |
+| Hero search | `src/components/home/HomeSearchHero.tsx` |
+| Recent row | `src/components/home/RecentGamesRow.tsx` |
+| List previews | `src/lib/lists/queries.ts` (via page) |
 
 ## Purpose
 
@@ -94,7 +108,7 @@ Repeat sign-up value prop + buttons Login / Sign up.
 | Hero | static |
 | Library rows | Supabase + IGDB card batch |
 | Recent | client localStorage |
-| New / Top rated | server IGDB, `unstable_cache` 6h |
+| New / Top rated | server IGDB, `unstable_cache` **24h** (`revalidate: 86400`) |
 
 Parallelize IGDB calls (max 2) to respect rate limits.
 
@@ -115,7 +129,7 @@ Parallelize IGDB calls (max 2) to respect rate limits.
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
 - [ ] `/` never shows unfiltered “all games” grid.
 - [ ] Hero search matches navbar behavior.
@@ -124,20 +138,19 @@ Parallelize IGDB calls (max 2) to respect rate limits.
 - [ ] Recently viewed from localStorage when present.
 - [ ] New releases + top rated rows use main-game IGDB filters.
 - [ ] GameCards link to `/game/[igdbId]`.
+- [ ] New releases + top rated cached **24h**.
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | Hero, library previews, recent, 2 discovery rows |
-| **v1.1** | ITAD deals row, personalized “Because you played X” |
-| **v2** | Editorial collections |
+ITAD deals row, personalized rows, platform chips → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 
-## Open questions
+## Resolved
 
-1. Cache TTL for discovery rows — 6h vs 24h?
-2. Show platform quick-filter chips on home (Steam, PS, Xbox)?
+| Topic | Decision |
+|-------|----------|
+| Discovery cache TTL | **24h** ([ludi-decisions](../ludi-decisions/SKILL.md)) |
+| Platform chips on home | **v1.1** — omit v1 |

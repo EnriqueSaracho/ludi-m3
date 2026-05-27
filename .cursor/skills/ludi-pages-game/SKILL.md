@@ -1,14 +1,26 @@
 ---
 name: ludi-pages-game
 description: >-
-  Game detail page spec: hero, where to buy, about, community, related content,
-  what's next. Layout, motion, a11y, anchors. Use when implementing /game/[igdbId]
-  or any game detail UI section.
+  Game page UI: six sections, sticky nav, community, related carousels.
+  Use when fixing game page layout, anchors, verification gates, or section UX.
 ---
 
 # Ludi — game page
 
-Related skills: [ludi-data-game](../ludi-data-game/SKILL.md) (fetching, types), [ludi-data-lists](../ludi-data-lists/SKILL.md) (play status, lists), [ludi-components-game-card](../ludi-components-game-card/SKILL.md) (card rows), [ludi-project](../ludi-project/SKILL.md) (stack, Lenis, tokens, auth).
+> **Phase:** v1 shipped. Documents **current** `/game/[igdbId]` UI. Default work: section bugs, a11y, anchors, community gates—not Lenis or slug URLs ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
+Related skills: [ludi-data-game](../ludi-data-game/SKILL.md) (fetching, types), [ludi-data-lists](../ludi-data-lists/SKILL.md) (play status, lists), [ludi-components-game-card](../ludi-components-game-card/SKILL.md) (card rows), [ludi-project](../ludi-project/SKILL.md) (stack, tokens, auth), [ludi-auth](../ludi-auth/SKILL.md) (email verification).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Server page + metadata | `src/app/game/[igdbId]/page.tsx` |
+| Client sections (hero → what's next) | `src/components/game/GamePageClient.tsx` |
+| Data loader | `src/lib/game/load-game-page.ts` |
+| Recent games | `src/lib/game/recent-games.ts` |
 
 ## Route
 
@@ -27,7 +39,7 @@ Future: `/game/[slug]` with redirect from slug → id once lookup table exists.
 ## Page structure (top → bottom)
 
 ```
-[Optional sticky section nav — v1 optional]
+[Sticky section nav — shipped]
 1. Hero
 2. Where to buy      (#where-to-buy)
 3. About             (#about)
@@ -44,16 +56,16 @@ Anchor IDs must match hero deep links (languages, accessibility, age ratings, bu
 
 | Concern | Spec |
 |---------|------|
-| Scroll | Lenis smooth scroll site-wide; respect `prefers-reduced-motion` (disable smooth) |
+| Scroll | **Native scroll v1**; respect `prefers-reduced-motion` (disable heavy Framer motion). Lenis → v1.1. |
 | Motion | Framer Motion scroll-reveal per section (`opacity` + `y`, once) |
-| Loading | `Suspense` boundaries per major section; skeletons match layout |
+| Loading | Route `src/app/game/[igdbId]/loading.tsx` hero skeleton; client pending on status/rate/comment; section `Suspense` → P2 polish |
 | Partial failure | IGDB core required; ITAD/community can fail gracefully with inline message |
 | Responsive | Mobile-first; hero stacks (cover + carousel above metadata on narrow) |
 | Tokens | Colors/spacing from `src/styles/design-tokens.css` when it exists |
 
-### Section nav (optional v1)
+### Section nav (current behavior)
 
-Horizontal pills: Buy · About · Community · Related · Next. Scroll-into-view on click. Sticky below main site nav on `md+`.
+Horizontal pills: Buy · About · Community · Related · Next. Scroll-into-view on click. **Sticky** below main site nav on `md+`.
 
 ---
 
@@ -116,7 +128,7 @@ Authenticated control group — **“Your status”**:
 | Control | Spec |
 |---------|------|
 | Status | Single select: **Want to play** · **Playing** · **Played** · None (clear) |
-| Platform | Required when status set — dropdown of game’s IGDB `platforms` + optional “Other” |
+| Platform | Optional — dropdown of game’s IGDB `platforms` + “Other”; preserved when changing status without re-selecting |
 | Sync | Updates `user_game_status` and moves game between system lists (see data-lists skill) |
 
 | Status | System list |
@@ -135,9 +147,10 @@ Placed adjacent to **Add to list** (distinct actions: status vs arbitrary lists)
 |--------|----------|----------------|
 | Hero **None** | No | Clears status + removes from status lists ([ludi-data-lists](../ludi-data-lists/SKILL.md)) |
 | Remove on [list page](../ludi-pages-list/SKILL.md) (status list) | **Yes** — “Are you sure?” | Clears `user_game_status`; hero shows **None** on next load or revalidation |
-| Uncheck status list in AddToListMenu | **Not allowed v1** | — |
+| Uncheck status list in AddToListMenu | **Not allowed** when checked | — |
+| **Remove from all lists** in AddToListMenu | No | Clears custom + status lists and `user_game_status`; keeps `games_rated` if rated |
 
-After confirmed remove from a status list, game page status control must match (no stale Playing / Want to play / Played).
+Checking a status list in AddToListMenu sets hero status via `onPlayStatusChange`. After confirmed remove from a status list, game page status control must match (no stale Playing / Want to play / Played).
 
 ### Ratings display (hero)
 
@@ -200,7 +213,7 @@ Display as icon button row or secondary table “Official stores” when no PC p
 | No ITAD, has store URLs | “No PC deals tracked. Available on:” + icons |
 | Nothing | “No store links available” |
 
-### Acceptance criteria
+### Regression checks
 
 - [ ] Region change updates prices.
 - [ ] Affiliate URLs unchanged.
@@ -251,7 +264,7 @@ Use `version_title` when present (e.g. “Gold Edition”).
 
 Rows = languages; columns = Audio / Subtitles / UI (from `language_support_type`).
 
-### Acceptance criteria
+### Regression checks
 
 - [ ] Hero deep links scroll to anchors.
 - [ ] Empty subsections not rendered.
@@ -266,8 +279,9 @@ Rows = languages; columns = Audio / Subtitles / UI (from `language_support_type`
 ### Comments
 
 - Thread list, newest first; paginate or “Load more”.
-- Post form: textarea + submit (authed only).
+- Post form: textarea + submit (authed + **email verified** only).
 - Guest: read-only + “Sign in to comment”.
+- Unverified authed: disabled form + “Verify your email to comment or rate” + resend CTA ([ludi-auth](../ludi-auth/SKILL.md)).
 - Schema: [ludi-data-game](../ludi-data-game/SKILL.md) `game_comments`.
 - **Plain text only** in v1 (no markdown).
 - Moderation: `deleted_at` hides; no edit v1 optional.
@@ -276,16 +290,17 @@ Rows = languages; columns = Audio / Subtitles / UI (from `language_support_type`
 
 | UI | Source |
 |----|--------|
-| Your rating | **Slider** 0–10 (step 0.5 or 1), labels at ends |
+| Your rating | **Slider** 0–10 (**step 0.5**), labels at ends; requires email verification |
 | Ludi average | `avg(game_ratings.score)` |
 | IGDB users | `rating` ÷ 10 |
 | Critics | `aggregated_rating` ÷ 10 |
 
 Guests see averages; cannot submit.
 
-### Acceptance criteria
+### Regression checks
 
-- [ ] Auth gate on post/rate.
+- [ ] Auth + **email verification** gate on post/rate.
+- [ ] Unverified users see verify CTA instead of submit/rate controls.
 - [ ] Separate rows for Ludi / IGDB / Critics.
 - [ ] User rating updates Ludi average and hero composite after refresh.
 
@@ -305,17 +320,29 @@ Horizontal **GameCard** rows per subsection ([ludi-components-game-card](../ludi
 | Ports | ports | yes |
 | Remakes / Remasters | remakes, remasters | yes |
 | Expanded / Forks | expanded_games, forks | yes |
-| Mods | Nexus (v1.1) | v1: single placeholder card |
+| Mods | `mods` | carousel: yes; section always shown (see below) |
 
-**Mods v1 placeholder:** “Mods — Coming soon” + short copy; link nothing or generic Nexus search.
+**Mods carousel (v1):** Horizontal **GameCard** row from `related.mods` (batched payload from [ludi-data-game](../ludi-data-game/SKILL.md)), same pattern as DLCs / Expansions. Omit carousel when `mods` is empty — do not render an empty row.
 
-**Mods v1.1:** Top 5 mods + “View all on Nexus Mods” → `nexus_game_map` URL.
+**Mods section visibility:** Always render the Mods subsection (`h3` “Mods”) on the game page. When IGDB `mods` has IDs → carousel + Nexus link. When empty → section title + Nexus link only (no placeholder card).
 
-### Acceptance criteria
+**Nexus outbound link (v1, static — not a data source):**
 
-- [ ] Each subsection independent; empty omitted.
+| Field | Value |
+|-------|--------|
+| Label | “Find mods on Nexus Mods” (or equivalent) |
+| URL | `https://www.nexusmods.com/search/?BH%5Bsearch%5D={encodeURIComponent(name)}` where `name` is the current game display title |
+| Link attrs | `target="_blank"`, `rel="noopener noreferrer"` |
+
+No Nexus API, API key, or `nexus_game_map`. Place link below the carousel (or alone when carousel omitted).
+
+### Regression checks
+
+- [ ] Each subsection independent; empty carousels omitted (Mods section still renders with Nexus link when `mods` empty).
 - [ ] Cards use batched payload from data layer.
-- [ ] Mods placeholder visible only once (not duplicate rows).
+- [ ] Mods carousel shows IGDB mod games when `related.mods` has items.
+- [ ] Nexus link is static search URL only; opens in new tab.
+- [ ] No “Coming soon” mods placeholder; no Nexus API or env vars.
 
 ---
 
@@ -332,7 +359,7 @@ v1.1: sync to Supabase for authed users cross-device.
 - Source: `similar_games` → GameCard row.
 - Section title: “Similar games”.
 
-### Acceptance criteria
+### Regression checks
 
 - [ ] Recent list updates on page visit (client effect).
 - [ ] Current game excluded from recent.
@@ -370,13 +397,14 @@ Use Supabase session from [ludi-project](../ludi-project/SKILL.md).
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | All sections except Nexus mods API; accessibility placeholder; localStorage recent |
-| **v1.1** | Nexus mods, RAWG extras, slug URLs, synced recent, sticky nav |
-| **v2** | Deals alert CTA, share button, user reviews beyond comments |
+| Gap | Notes |
+|-----|--------|
+| IGDB mods carousel | `related.mods` empty; Mods subsection shows **Nexus outbound link** only ([ludi-data-game](../ludi-data-game/SKILL.md)) |
+| Recent games | `localStorage` only—not Supabase sync |
+| Lenis, slug URLs | [v1.1 backlog](../ludi-decisions/SKILL.md#v11-backlog) |
+| Framer scroll-reveal | Spec’d in sections below; not wired in `GamePageClient` yet (dependency only) |
 
 ---
 
@@ -384,21 +412,26 @@ Use Supabase session from [ludi-project](../ludi-project/SKILL.md).
 
 | Topic | Decision |
 |-------|----------|
-| Region | Browser/geo → cookie → profile; adjustable |
+| Region | Browser/geo → cookie → profile; adjustable; ITAD fallback US |
 | Guest add to list | Redirect to login |
-| User rating | 0–10 slider |
+| User rating | 0–10 slider, **step 0.5** |
+| Email verification | Required to comment/rate |
+| Sticky section nav | **Required v1** |
+| Scroll | Native v1; Lenis v1.1 |
 | Comments | Plain text |
 | Hero cover | Separate static cover + carousel |
 | Mobile buy | Stacked cards |
+| Mods | v1: Nexus outbound link when carousel empty; IGDB mod cards → follow-up (Query F) |
 
 ---
 
-## Page acceptance criteria (summary)
+## Page regression checks (summary)
 
 - [ ] Route `/game/[igdbId]` renders all six sections.
 - [ ] Metadata/OG tags from game name + summary + cover.
 - [ ] Anchors work from hero.
-- [ ] Lenis + Framer Motion per project conventions.
+- [ ] Sticky section pills scroll to anchors on `md+`.
+- [ ] Framer Motion scroll-reveal per conventions; **native scroll** (no Lenis v1).
 - [ ] WCAG: heading order h1→h2, carousel keyboard, contrast from tokens.
 - [ ] Responsive hero and horizontal rows on mobile.
 - [ ] GameCard used for related + similar + recent.

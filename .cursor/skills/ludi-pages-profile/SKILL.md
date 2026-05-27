@@ -1,13 +1,26 @@
 ---
 name: ludi-pages-profile
 description: >-
-  Profile page: avatar, username, list previews with see more. Use when
-  implementing /profile or user identity UI.
+  Profile UI: avatar, username, list previews, new list. Use when fixing
+  /profile upload, username edit, or list preview rows.
 ---
 
 # Ludi — profile page
 
+> **Phase:** v1 shipped. Documents **current** owner-only `/profile`. Default work: avatar, username, list previews—not public profiles ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-pages-list](../ludi-pages-list/SKILL.md), [ludi-data-lists](../ludi-data-lists/SKILL.md), [ludi-components-game-card](../ludi-components-game-card/SKILL.md), [ludi-auth](../ludi-auth/SKILL.md), [ludi-components-nav](../ludi-components-nav/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Profile route | `src/app/profile/page.tsx` |
+| Editor + list sections | `src/components/profile/ProfileEditor.tsx` |
+| New custom list | `src/components/profile/NewListDialog.tsx` |
+| Settings (country, etc.) | `src/app/settings/page.tsx`, `src/components/settings/SettingsForm.tsx` |
 
 ## Route
 
@@ -28,7 +41,7 @@ Optional: `/profile/[username]` public profile v2 — **v1 is owner-only** (`/pr
 | Username | Display + inline edit (save on blur or button) |
 | Member since | optional subtle text from `created_at` |
 
-Validation: username 3–24 chars, alphanumeric + underscore, unique.
+Validation: username 3–24 chars, alphanumeric + underscore. **Unique not enforced v1** (collisions allowed; DB UNIQUE → v1.1).
 
 ### Section — My lists (`#lists`)
 
@@ -97,10 +110,10 @@ Server load:
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
-- [ ] Avatar upload updates display.
-- [ ] Username edit saves with uniqueness error handling.
+- [ ] Avatar upload to `avatars` bucket works (max 2MB jpg/png/webp) and updates display.
+- [ ] Username edit saves (format validation only v1; uniqueness → v1.1).
 - [ ] Four system list sections always visible.
 - [ ] Custom lists appear below system lists.
 - [ ] Each section shows ≤6 cards + See more → list page.
@@ -119,16 +132,12 @@ Server load:
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | Identity + list previews + new list |
-| **v1.1** | Public profile URL |
-| **v2** | Activity feed, stats |
+Public `/profile/[username]`, inline list rename on profile → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 
-## Open questions
+## Resolved
 
-None for list rename rules.
+List rename rules unchanged. See [ludi-decisions](../ludi-decisions/SKILL.md) for avatars v1 and username uniqueness v1.1.

@@ -1,13 +1,25 @@
 ---
 name: ludi-pages-list
 description: >-
-  Single list page: full game queue, drag-to-reorder, remove items. Use when
-  implementing /list/[listId] or See more from profile.
+  List page: queue, drag reorder, remove, rename/delete custom lists. Use when
+  fixing /list/[listId] DnD, long-press mobile drag, or remove flows.
 ---
 
 # Ludi — list detail page
 
+> **Phase:** v1 shipped. Documents **current** `/list/[listId]`. Default work: reorder, remove confirms, rename—not bulk add ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-pages-profile](../ludi-pages-profile/SKILL.md), [ludi-data-lists](../ludi-data-lists/SKILL.md), [ludi-components-game-card](../ludi-components-game-card/SKILL.md), [ludi-auth](../ludi-auth/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| List route | `src/app/list/[listId]/page.tsx` |
+| Queue + DnD client | `src/components/list/ListPageClient.tsx` |
+| List mutations | `src/lib/lists/actions.ts` |
 
 ## Route
 
@@ -42,7 +54,7 @@ Related skills: [ludi-pages-profile](../ludi-pages-profile/SKILL.md), [ludi-data
 | Feature | Spec |
 |---------|------|
 | Item | GameCard `md` + drag handle + optional platform label from `list_items.platform_name` |
-| Reorder | Drag-and-drop (e.g. `@dnd-kit/core`) — update `sort_order` on drop |
+| Reorder | Drag-and-drop (`@dnd-kit/core`) — update `sort_order` on drop. **Desktop:** pointer drag. **Mobile:** **long-press** (~500ms) to initiate drag (`TouchSensor` delay). |
 | Remove | Per-item “Remove” or X — see remove matrix below |
 | Add games | Button “Add games” → `/search` or opens search modal v1.1 |
 
@@ -95,11 +107,11 @@ Illustration + “This list is empty” + CTA to Search.
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
 - [ ] Owner-only access.
 - [ ] Shows all items ordered by `sort_order`.
-- [ ] Drag reorder persists to DB.
+- [ ] Drag reorder persists to DB (desktop + **long-press** on touch).
 - [ ] Status list remove shows confirm dialog with correct copy per list type.
 - [ ] After confirmed status remove, `user_game_status` cleared and game page hero in sync.
 - [ ] `games_rated` and custom removes are instant without confirm.
@@ -119,16 +131,14 @@ Illustration + “This list is empty” + CTA to Search.
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | Full queue, DnD, remove |
-| **v1.1** | Bulk add, keyboard reorder |
-| **v2** | Share public read-only list |
+“Add games” search modal, keyboard reorder, public share links → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog). v1 “Add games” links to `/search`.
 
 ---
 
-## Open questions
+## Resolved
 
-1. Show drag on mobile long-press only?
+| Topic | Decision |
+|-------|----------|
+| Mobile drag | **Long-press** to start drag v1 ([ludi-decisions](../ludi-decisions/SKILL.md)) |

@@ -1,14 +1,29 @@
 ---
 name: ludi-data-lists
 description: >-
-  User lists, play status, platforms, system lists, list_items ordering.
-  Supabase schema and sync rules. Use when implementing lists, save button,
-  game page status, or profile library.
+  Lists schema, play status sync, Server Actions, RLS. Use when fixing save
+  button, status lists, reorder, profile bootstrap, or list limits.
 ---
 
 # Ludi — lists & library data
 
+> **Phase:** v1 shipped. Documents **current** schema and sync rules. Default work: list/status bugs, RLS, reorder—not collaborative or public lists ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-pages-profile](../ludi-pages-profile/SKILL.md), [ludi-pages-list](../ludi-pages-list/SKILL.md), [ludi-pages-game](../ludi-pages-game/SKILL.md), [ludi-components-game-card](../ludi-components-game-card/SKILL.md), [ludi-auth](../ludi-auth/SKILL.md), [ludi-data-game](../ludi-data-game/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Server Actions | `src/lib/lists/actions.ts` |
+| Queries (membership, previews) | `src/lib/lists/queries.ts` |
+| Play status ↔ system list sync | `src/lib/lists/sync.ts` |
+| Schema + RLS | `supabase/migrations/001_initial_schema.sql` |
+| Add to list UI | `src/components/game-card/AddToListMenu.tsx` |
+| List page reorder | `src/components/list/ListPageClient.tsx` |
+| Profile lists | `src/components/profile/ProfileEditor.tsx`, `NewListDialog.tsx` |
 
 ## Concepts
 
@@ -58,10 +73,11 @@ Single **primary status** per user per game (mutually exclusive for system sync)
 
 ### Platform / console
 
-When status is set, user selects **platform played on** (required if status non-null):
+When status is set, user may optionally select **platform played on**:
 
 - Dropdown: IGDB `platforms` for that game (from cached game metadata) + “Other” optional.
 - Store `platform_id` (IGDB platform id) + `platform_name` snapshot on `user_game_status`.
+- **Not required** — status can be set without platform. When platform is omitted on update, existing platform values are preserved.
 
 Changing platform updates row without changing status.
 
@@ -101,8 +117,9 @@ Server Actions return a friendly error when exceeded, e.g. “This list is full 
 ### AddToListMenu ([ludi-components-game-card](../ludi-components-game-card/SKILL.md))
 
 - **Custom lists:** check = add, uncheck = instant remove (no confirm).
-- **Status lists:** show checked when game is on list via play status; **do not allow uncheck** in v1 — user changes via game hero **None** / status select, or list page **Remove** with confirm.
+- **Status lists:** check = `addToList` → delegates to `setPlayStatus` (syncs `user_game_status` + one status list); **do not allow uncheck** when checked — user changes via hero **None** / status select, **Remove from all lists**, or list page **Remove** with confirm.
 - **games_rated:** read-only when rated; remove via list page if needed.
+- **Unsave:** menu item **Remove from all lists** when on any custom or status list — clears custom + status `list_items` and `user_game_status`; **keeps** `games_rated` + `game_ratings`.
 
 Confirm dialog is **not** used in AddToListMenu.
 
@@ -116,6 +133,12 @@ GameCard bookmark: **filled** when true, outline when false. Still opens AddToLi
 
 ---
 
+## Schema delivery
+
+Iterate via **Supabase MCP** (`execute_sql`, `get_advisors`); commit `supabase/migrations/` when stable. See [ludi-decisions](../ludi-decisions/SKILL.md) and [ludi-project](../ludi-project/SKILL.md#supabase-schema-delivery).
+
+---
+
 ## Supabase schema (sketch)
 
 ### `profiles` (extend)
@@ -123,7 +146,7 @@ GameCard bookmark: **filled** when true, outline when false. Still opens AddToLi
 | Column | Type |
 |--------|------|
 | id | uuid PK → auth.users |
-| username | text unique |
+| username | text (**non-unique v1**; UNIQUE constraint → v1.1) |
 | avatar_url | text nullable |
 | preferred_country | char(2) nullable |
 | created_at | timestamptz |
@@ -181,8 +204,13 @@ setPlayStatus(user, igdbId, status, platform):
   if status: add to corresponding system list (append sort_order max+1)
 
 addToList(user, listId, igdbId):
-  if count(list_items for listId) >= MAX_LIST_ITEMS: error
-  insert list_items on conflict do nothing
+  if status system list: applyPlayStatus (LIST_TO_PLAY_STATUS) — no direct list_items insert
+  else if count(list_items for listId) >= MAX_LIST_ITEMS: error
+  else insert list_items on conflict do nothing
+
+unsaveGame(user, igdbId):
+  delete list_items from custom + status lists (not games_rated)
+  delete user_game_status row
 
 removeListItem(user, listId, igdbId):
   delete list_items where list_id and igdb_id
@@ -195,7 +223,7 @@ rateGame(user, igdbId, score):
   add to games_rated list
 ```
 
-Implement via Server Actions with RLS. List-page remove calls `removeListItem` after user confirms (status lists only).
+**Shipped:** Server Actions in `src/lib/lists/actions.ts` with RLS. List-page remove calls `removeListItem` after user confirms (status lists only).
 
 ---
 
@@ -225,9 +253,9 @@ getListPreview(listId, limit = 6):
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
-- [ ] Signup creates 4 system lists.
+- [ ] Signup creates profile with **derived username** (collisions allowed v1) + 4 system lists.
 - [ ] Play status syncs exactly one status list.
 - [ ] Platform stored with status.
 - [ ] Rating adds to games_rated.
@@ -253,16 +281,12 @@ getListPreview(listId, limit = 6):
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | Full schema + sync |
-| **v1.1** | List covers, public share links |
-| **v2** | Collaborative lists |
+Profile inline list rename, public share links, list covers, username UNIQUE → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 
-## Open questions
+## Resolved (formerly open)
 
-None for rename, max size, or status remove.
+Rename, max size, status remove — unchanged. Username UNIQUE → v1.1 ([ludi-decisions](../ludi-decisions/SKILL.md)).

@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent skill copies (not app source)
+.agents/
+
+# nested skill-repo metadata inside cloned skill directories
+.cursor/skills/*/.git/

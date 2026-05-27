@@ -1,14 +1,29 @@
 ---
 name: ludi-data-search
 description: >-
-  Search data layer: IGDB search query building, filters, sort, pagination,
-  facet lists, cache. Use when implementing /search, navbar search API, or
-  GameCard result payloads.
+  Search data: IGDB query build, filters, sort, Load more, facets, cache.
+  Use when fixing search API, pagination, facets, or GameCard result mapping.
 ---
 
 # Ludi — search data layer
 
+> **Phase:** v1 shipped. Documents **current** search API behavior. Default work: query bugs, `hasMore`, filters, facet cache—not navbar typeahead ([v1.1](../ludi-decisions/SKILL.md#v11-backlog)).
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-pages-search](../ludi-pages-search/SKILL.md), [ludi-components-nav](../ludi-components-nav/SKILL.md), [ludi-components-game-card](../ludi-components-game-card/SKILL.md), [ludi-data-game](../ludi-data-game/SKILL.md), [ludi-project](../ludi-project/SKILL.md).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Search API route | `src/app/api/search/route.ts` |
+| Facets API route | `src/app/api/facets/route.ts` |
+| Query builder + search execution | `src/lib/search/build-query.ts`, `search-games.ts` |
+| Facet lists | `src/lib/igdb/facets.ts` |
+| Game type IDs | `src/lib/igdb/game-type-ids.json` |
+| IGDB transport | `src/lib/igdb/client.ts` |
+| Search page UI | `src/app/search/page.tsx`, `src/components/search/*` |
 
 ## IGDB search mechanics
 
@@ -96,7 +111,9 @@ Deprecated `category` enum (0=main_game, 1=dlc, …) still appears in old exampl
 
 ### Quick filter ID cache
 
-Store in `src/lib/igdb/game-type-ids.ts` generated at build from API or hardcoded after one-time fetch. Example mapping from deprecated category (verify against live `game_types`):
+**v1:** Committed **`src/lib/igdb/game-type-ids.json`** from one-time IGDB `/v4/game_types` fetch (see [game-type-ids.json](#game-type-idsjson) below). Do not use deprecated `category` enum for new code.
+
+Example mapping (verify against live `game_types` when generating):
 
 | type | Typical label |
 |------|----------------|
@@ -155,8 +172,24 @@ Expose in URL: `?q=…&sort=rating&order=desc`.
 ```
 
 - **`q` required** — page must not render results without it (see pages skill).
-- **`page`** → `offset = (page-1) * limit`, default `limit=24`.
+- **`page`** → `offset = (page-1) * limit`, default `limit=24`, default `pageSize=24`.
 - Invalid IDs stripped server-side.
+
+### Load more (v1)
+
+- UI increments `page` and **appends** items ([ludi-pages-search](../ludi-pages-search/SKILL.md)).
+- Server requests `limit+1` rows internally; returns `pageSize` items + **`hasMore: boolean`** (do not return the extra row to client).
+
+---
+
+## game-type-ids.json
+
+| Step | Detail |
+|------|--------|
+| Script | `scripts/generate-game-type-ids.ts` — fetch `/v4/game_types`, write JSON |
+| Output | `src/lib/igdb/game-type-ids.json` — map keys (`main`, `dlc`, `mod`, …) → IGDB type ids |
+| Commit | Check in generated file; re-run script when IGDB adds types |
+| v1.1 | Optional daily revalidate job |
 
 ---
 
@@ -165,10 +198,10 @@ Expose in URL: `?q=…&sort=rating&order=desc`.
 ```ts
 type SearchResult = {
   query: string;
-  total?: number;        // IGDB may not give total — use "hasMore" via limit+1 fetch optional
   page: number;
   pageSize: number;
   items: GameCardPayload[];
+  hasMore: boolean;      // true when IGDB returned limit+1 rows
   facetsApplied: FilterState;
 };
 ```
@@ -207,7 +240,7 @@ Store JSON in `src/lib/igdb/facets/` or fetch in Route Handler `GET /api/facets`
 |-----|-----|-------|
 | `search:{hash(q+filters+sort+page)}` | 5–15 min | `unstable_cache` |
 | Facets | 24h | static |
-| `game_types` ids | 7d | rare changes |
+| `game_types` ids | committed JSON | regenerate via script when needed |
 
 Do not cache empty `q`. Hash full query string including filters.
 
@@ -240,7 +273,7 @@ IGDB search has no simple “safe search” flag. Mitigations:
 
 ---
 
-## Acceptance criteria
+## Regression checks
 
 - [ ] IGDB query built from `q` + filters + sort + pagination.
 - [ ] Quick filters map to correct `game_type` IDs.
@@ -248,20 +281,20 @@ IGDB search has no simple “safe search” flag. Mitigations:
 - [ ] Cache keyed by full param set.
 - [ ] Facet endpoints cached 24h.
 - [ ] Respects 4 req/s (no duplicate in-flight per session).
+- [ ] `hasMore` from `limit+1` fetch drives Load more visibility.
+- [ ] Quick filters use `game-type-ids.json`.
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | IGDB search + platform/genre/game_type/game_mode filters + sort + pagination |
-| **v1.1** | Language filter server-side, tag optimization, Ludi rating in sort |
-| **v2** | Typeahead suggestions, search history |
+Navbar typeahead, language filter server-side, Ludi rating in sort → [ludi-decisions § v1.1](../ludi-decisions/SKILL.md#v11-backlog)
 
 ---
 
-## Open questions
+## Resolved
 
-1. Fetch `limit+1` to detect `hasMore` without count endpoint?
-2. Include `version_parent = null` on “All” quick filter too (edition noise)?
+| Topic | Decision |
+|-------|----------|
+| `hasMore` | **`limit+1`** server-side; Load more UX ([ludi-decisions](../ludi-decisions/SKILL.md)) |
+| “All” quick filter | Does **not** auto-add `version_parent = null`; Main games remains default when `q` present |

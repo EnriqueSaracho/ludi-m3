@@ -1,11 +1,14 @@
-# Ludi — project skills (specs)
+# Ludi — project skills (post-v1 reference)
 
 Cursor Agent Skills for this repo. Each skill is a folder with a `SKILL.md` file.
+
+**v1 is shipped.** Skills describe **as-built** behavior and regression expectations—not a greenfield build checklist. Ground truth when unsure: the repo (`src/`, `supabase/migrations/`).
 
 ## Skills index
 
 | Skill folder | Scope |
 |--------------|--------|
+| `ludi-decisions/` | **Locked v1 decisions** — read first |
 | `ludi-project/` | Stack, conventions, design tokens, a11y, auth overview |
 | `ludi-auth/` | Login, signup, reset, OAuth, middleware |
 | `ludi-data-game/` | Game page: IGDB, ITAD, cache, normalization |
@@ -19,16 +22,21 @@ Cursor Agent Skills for this repo. Each skill is a folder with a `SKILL.md` file
 | `ludi-components-game-card/` | GameCard + AddToListMenu |
 | `ludi-components-nav/` | Navbar, search, account menu |
 
-## Read order by feature
+## Maintenance read order
 
-**Foundation:** `ludi-project` → `ludi-auth` → `ludi-data-lists`
+1. **`ludi-decisions`** — scope contract (do not re-litigate v1 unless asked)
+2. **`ludi-project`** — stack, routes, conventions
+3. **Area skill** for the bug or feature you are touching (table above)
 
-**Game page:** `ludi-data-game` → `ludi-pages-game` → `ludi-components-game-card`
+### By area (after decisions + project)
 
-**Search:** `ludi-components-nav` → `ludi-data-search` → `ludi-pages-search` → `ludi-components-game-card`
+| Area | Skills |
+|------|--------|
+| Auth / session | `ludi-auth` |
+| Lists / library | `ludi-data-lists` → `ludi-pages-profile` / `ludi-pages-list` |
+| Game page | `ludi-data-game` → `ludi-pages-game` → `ludi-components-game-card` |
+| Search | `ludi-data-search` → `ludi-pages-search` → `ludi-components-nav` → `ludi-components-game-card` |
+| Home | `ludi-pages-home` → `ludi-data-lists` → `ludi-components-game-card` |
+| Nav only | `ludi-components-nav` |
 
-**Home:** `ludi-pages-home` → `ludi-data-lists` → `ludi-components-game-card`
-
-**Profile & lists:** `ludi-pages-profile` → `ludi-pages-list` → `ludi-data-lists`
-
-Add folders as features are specified.
+New product scope → update `ludi-decisions` (v1.1 backlog) before area skills.

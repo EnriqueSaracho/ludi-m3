@@ -1,14 +1,32 @@
 ---
 name: ludi-data-game
 description: >-
-  Game page data layer: IGDB queries, ITAD prices, Steam App ID linking,
-  normalization, caching, Supabase tables. Use when fetching or caching game
-  detail data, Route Handlers, or game page server loaders.
+  Game data: IGDB, ITAD, normalize, game_cache, ratings/comments loaders.
+  Use when debugging game page fetch, cache TTL, ITAD pricing, or related batches.
 ---
 
 # Ludi — game data layer
 
+> **Phase:** v1 shipped. Documents **current** loaders and cache rules. Default work: fix fetch failures, cache, ratings, ITAD country—not new IGDB surfaces unless scoped.
+
+See [ludi-decisions](../ludi-decisions/SKILL.md) for locked v1 scope.
+
 Related skills: [ludi-pages-game](../ludi-pages-game/SKILL.md) (UI sections), [ludi-components-game-card](../ludi-components-game-card/SKILL.md) (card payload), [ludi-project](../ludi-project/SKILL.md) (stack, auth, env).
+
+## Implementation map
+
+| Concern | Location |
+|---------|----------|
+| Server loader (IGDB + cache + ITAD + community) | `src/lib/game/load-game-page.ts` |
+| Normalize + Steam id + card payloads | `src/lib/game/normalize.ts` |
+| Types + play status | `src/lib/game/types.ts` |
+| Composite rating math | `src/lib/game/composite-rating.ts` |
+| Recent games (localStorage) | `src/lib/game/recent-games.ts` |
+| IGDB client + token | `src/lib/igdb/client.ts`, `src/lib/igdb/auth.ts`, `images.ts` |
+| ITAD | `src/lib/itad/client.ts` |
+| Country for ITAD | `src/lib/country/resolve-country.ts` |
+| Game page (server) | `src/app/game/[igdbId]/page.tsx` |
+| Game page (client sections) | `src/components/game/GamePageClient.tsx` |
 
 ## Canonical identity
 
@@ -16,7 +34,7 @@ Related skills: [ludi-pages-game](../ludi-pages-game/SKILL.md) (UI sections), [l
 |-------|------|
 | `igdb_id` | Primary URL key: `/game/[igdbId]` |
 | `slug` | IGDB `games.slug` — SEO-friendly alias later (`/game/hollow-knight` redirect) |
-| `steam_appid` | Connector: IGDB `external_games` (steam) → ITAD lookup → RAWG (optional) |
+| `steam_appid` | Connector: IGDB `external_games` (steam) → ITAD lookup |
 
 **Route decision (v1):** `/game/[igdbId]` — stable, no slug collision. Store `slug` on normalized record for metadata and future redirects.
 
@@ -26,11 +44,45 @@ Related skills: [ludi-pages-game](../ludi-pages-game/SKILL.md) (UI sections), [l
 |----------|---------|
 | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Twitch OAuth → IGDB Bearer |
 | `ITAD_API_KEY` | IsThereAnyDeal |
-| `RAWG_API_KEY` | Optional enrichment (v1.1) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Cache + community writes (server) |
 | `NEXT_PUBLIC_SUPABASE_*` | Auth + RLS reads (client where needed) |
 
-Never expose IGDB/ITAD/RAWG keys to the browser. Fetch in Server Components, Route Handlers, or Server Actions.
+Never expose IGDB/ITAD keys to the browser. Fetch in Server Components, Route Handlers, or Server Actions.
+
+See **Twitch token (client credentials)** below for how `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` become Bearer tokens.
+
+### Twitch token (client credentials)
+
+`IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` are **Twitch Developer** app credentials — not end-user login. The server exchanges them for a Bearer token on every IGDB API surface (game page, search, facets). This flow is **separate from Supabase Auth**.
+
+| Step | Detail |
+|------|--------|
+| Request | `POST https://id.twitch.tv/oauth2/token` with `client_id`, `client_secret`, `grant_type=client_credentials` |
+| Response | `access_token`; `expires_in` when present |
+| Docs | [IGDB authentication](https://api-docs.igdb.com/#authentication) |
+
+**Where it runs:** Server Components, Route Handlers, Server Actions only. Never `NEXT_PUBLIC_*` for IGDB; never send credentials or tokens to the browser.
+
+**Module (shipped):** `src/lib/igdb/auth.ts` + `src/lib/igdb/client.ts`. [ludi-data-search](../ludi-data-search/SKILL.md) uses the same client; do not duplicate token logic.
+
+**Caching / refresh:**
+
+- Cache `access_token` in memory (module-level) or `unstable_cache` for ~50 minutes, or `expires_in` minus a safety buffer when Twitch returns it.
+- On IGDB **401** or token errors: fetch a new token once, then retry the failed request.
+- IGDB app tokens may not expire today; still refresh defensively.
+- **Client secret** is long-lived — no scheduled rotation. Regenerate in Twitch Console only if leaked or rotated manually.
+
+**IGDB calls:** Use headers from [IGDB transport](#igdb-transport) — `Client-ID: {IGDB_CLIENT_ID}` and `Authorization: Bearer {access_token}`.
+
+**Env files:** `.env.example` documents names, docs links, and server-only scope only; token behavior lives here and in `src/lib/igdb/`.
+
+```ts
+// Minimal token fetch (server-only)
+await fetch(
+  `https://id.twitch.tv/oauth2/token?client_id=${id}&client_secret=${secret}&grant_type=client_credentials`,
+  { method: "POST" },
+);
+```
 
 ---
 
@@ -68,7 +120,7 @@ fields
   id, name, slug, summary, storyline,
   first_release_date,
   cover.image_id,
-  game_type.name,
+  game_type.type,
   parent_game.id, parent_game.name, parent_game.slug,
   version_parent.id, version_parent.name, version_parent.slug, version_title,
   genres.name, themes.name, platforms.name,
@@ -194,11 +246,14 @@ Docs: https://docs.isthereanydeal.com/
 | Related card batch | 24h | keyed by parent `igdb_id` |
 | ITAD lookup steam→uuid | 7d | rarely changes |
 
-### Cache strategy (decision)
+### Cache strategy (v1)
 
-**v1 — Next.js cache only:** `unstable_cache` / `fetch` with `revalidate` keyed by `igdb_id` (+ country for ITAD). No required Supabase writes on page view. Simpler ops, works on Vercel edge/serverless.
+**Dual layer:**
 
-**v1.1 — Supabase `game_cache` write-through:** after successful load, upsert normalized JSON for repeat hits, analytics, and future offline search. Search uses separate short-TTL cache (see [ludi-data-search](../ludi-data-search/SKILL.md)).
+1. **Supabase `game_cache`** — read on game load if `fetched_at` within **24h**; else fetch IGDB/ITAD, normalize, **upsert** write-through (service role). See [game_cache (v1)](#game_cache-v1) below.
+2. **Next.js** — `unstable_cache` / `fetch` `revalidate` keyed by `igdb_id` (+ country for ITAD) as additional layer.
+
+Search uses separate short-TTL Next cache only ([ludi-data-search](../ludi-data-search/SKILL.md)).
 
 ### Region (prices)
 
@@ -210,28 +265,25 @@ Merge store URLs from IGDB `websites` + `external_games` (PlayStation Store, Xbo
 
 ---
 
-## RAWG (v1.1)
+## Mods (IGDB)
 
-Optional after IGDB load: `GET /games/{rawgId}` or search by `steam_appid` if mapping exists. Use for extra screenshots/ratings only when IGDB sparse. Do not duplicate hero ratings.
+There is **no** `mods` field on `/v4/games`. Mod entries are separate games with `game_type` = Mod (see [ludi-data-search](../ludi-data-search/SKILL.md) “Mods & community”), often linked via `parent_game`.
 
----
+| Step | Detail |
+|------|--------|
+| Query A | Do **not** request `mods` — IGDB returns 400. |
+| Optional Query F | `where parent_game = {igdbId} & game_type = ({ids from `src/lib/igdb/game-type-ids.json` → `mod`});` then card fields like Query C. |
+| Normalize | Bucket into `related.mods: GameCardPayload[]` from Query F results; until implemented, return `mods: []`. |
 
-## Nexus Mods (v1.1)
+**v1 (shipped):** `related.mods` is always empty; game page shows Nexus link only ([ludi-pages-game](../ludi-pages-game/SKILL.md)). IGDB mods carousel = optional follow-up (Query F).
 
-Not Steam-native. API uses `domainName` (e.g. `skyrim`).
-
-1. `steam_appid` → title from normalized game.
-2. Lookup `nexus_game_map` table or Nexus games search.
-3. Cache `steam_appid → nexus_domain` in Supabase.
-4. Fetch top N mods + link `https://www.nexusmods.com/{domain}/`.
-
-v1: no API call; pages skill shows placeholder.
+**Nexus:** Not a data source. Pages skill may link to Nexus site search by game `name` only (static URL, no server call). Do **not** add `nexus_game_map` or any Nexus-related Supabase table.
 
 ---
 
 ## Normalized types (TypeScript sketch)
 
-Implement in `src/lib/game/types.ts` when coding — names for skill alignment:
+Types live in `src/lib/game/types.ts` — names for skill alignment:
 
 ```ts
 type NormalizedGame = {
@@ -282,6 +334,23 @@ type GameCardPayload = {
   releaseDate: string | null;      // ISO or display-ready
   contentType: string | null;      // game_type.type label
 };
+
+type RelatedBuckets = {
+  similar: GameCardPayload[];
+  dlcs: GameCardPayload[];
+  expansions: GameCardPayload[];
+  standaloneExpansions: GameCardPayload[];
+  bundles: GameCardPayload[];
+  ports: GameCardPayload[];
+  remakes: GameCardPayload[];
+  remasters: GameCardPayload[];
+  expandedGames: GameCardPayload[];
+  forks: GameCardPayload[];
+  mods: GameCardPayload[];
+  parentGame: GameCardPayload | null;
+  versionParent: GameCardPayload | null;
+  // other buckets per Query A arrays as implemented
+};
 ```
 
 `GameCardPayload` extended fields: [ludi-components-game-card](../ludi-components-game-card/SKILL.md). Search and related-card loaders must populate all card fields.
@@ -321,11 +390,33 @@ Prefer organization matching user region (ESRB for US, PEGI for EU, etc.); fallb
 | `game_ratings` | `user_id`, `igdb_id`, `score` (0–10), `updated_at` — unique (user_id, igdb_id) |
 | `game_comments` | `id`, `igdb_id`, `user_id`, `body`, `created_at`, `deleted_at` |
 | Lists / library | See [ludi-data-lists](../ludi-data-lists/SKILL.md) — `user_lists`, `list_items`, `user_game_status` |
-| `nexus_game_map` | `steam_appid`, `nexus_domain`, `resolved_at` |
 
 **RLS:** users CRUD own lists, ratings, comments; public read on aggregates; `game_cache` service-role write only.
 
-**Ludi rating aggregate:** `avg(score)` from `game_ratings` where `igdb_id` = X — compute in loader or materialized view (v1: query on load).
+**Ludi rating aggregate (v1):** `SELECT avg(score)` from `game_ratings` where `igdb_id` = X on each game page load. Materialized view → v1.1.
+
+---
+
+## game_cache (v1)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `igdb_id` | integer PK | |
+| `payload` | jsonb | Normalized game JSON |
+| `steam_appid` | integer nullable | Index for ITAD |
+| `fetched_at` | timestamptz | Stale after **24h** |
+
+- **Read:** If row exists and fresh → hydrate loader from `payload`; skip IGDB A/B/C/D when complete.
+- **Write:** After successful normalize, upsert via **service role** (RLS: no public write).
+- **Miss/stale:** Full IGDB fetch plan, then upsert.
+
+---
+
+## Related ID batching (v1)
+
+- Collect related IDs from Query A arrays; **dedupe**.
+- **Cap at 50 IDs** per `POST /v4/games` batch (IGDB body size). Priority order: similar, dlcs, expansions, then others per product need.
+- Overflow IDs → v1.1 per-carousel “load more” or omit with log.
 
 ---
 
@@ -333,42 +424,50 @@ Prefer organization matching user region (ESRB for US, PEGI for EU, etc.); fallb
 
 ```
 loadGamePage(igdbId, countryCode):
-  cached = getGameCache(igdbId)
-  if stale: parallel [queryA, queryB?, queryD, loadLudiRatings, loadCommentsCount]
+  cached = getGameCacheFromSupabase(igdbId)  // 24h TTL
+  if stale or miss:
+    parallel [queryA, queryB?, queryD, loadLudiRatings, loadCommentsCount]
+    normalized = normalize(...)
+    upsertGameCache(igdbId, normalized)
+    cached = normalized
   steamAppid = extractSteam(cached)
   itad = steamAppid ? fetchItadPrices(steamAppid, countryCode) : null
-  relatedCards = queryC(collectRelatedIds(cached))
-  return normalize(cached, itad, relatedCards, ludiRatings)
+  relatedCards = queryC(collectRelatedIds(cached, maxIds=50))
+  return merge(cached, itad, relatedCards, ludiRatings)
 ```
 
 Stream sections with React `Suspense` boundaries per pages skill.
 
 ---
 
-## Acceptance criteria (data layer)
+## Regression checks (data layer)
 
-- [ ] All IGDB calls server-side with OAuth token refresh cached (~50 min).
+- [ ] All IGDB calls server-side; [Twitch token (client credentials)](#twitch-token-client-credentials) helper caches/refreshes Bearer token (~50 min or `expires_in` buffer).
 - [ ] Game page loads with ≤4 IGDB requests + ≤2 ITAD requests typical case.
 - [ ] `steam_appid` extracted and stored on normalized object.
 - [ ] ITAD prices respect `country` param and affiliate URLs intact.
 - [ ] Composite rating excludes `total_rating` double-count.
-- [ ] Related IDs batched in single `games` query.
+- [ ] Related IDs batched in single `games` query (**≤50** per batch).
 - [ ] Cache headers/TTLs match table above.
 - [ ] 404 when IGDB returns empty for `igdbId`.
+- [ ] `game_cache` upsert after successful game page load.
+- [ ] ITAD country fallback **`US`** when preference chain empty.
 
 ---
 
-## Phasing
+## Known gaps / deferred
 
-| Phase | Scope |
-|-------|--------|
-| **v1** | IGDB A/B/C/D, ITAD, Supabase ratings/comments/lists, `game_cache` |
-| **v1.1** | Nexus mods, RAWG, accessibility source, slug redirects |
-| **v2** | Webhooks / background refresh for hot games |
+| Gap | Notes |
+|-----|--------|
+| `related.mods` IGDB carousel | Always `[]`; Nexus link only on game page UI |
+| Materialized `game_ratings` avg | Query on load today |
+| Slug URLs, accessibility data source | [v1.1 backlog](../ludi-decisions/SKILL.md#v11-backlog) |
 
 ---
 
-## Open questions
+## Resolved
 
-1. Materialized `game_ratings` avg vs query per page load?
-2. Max related IDs per batch (IGDB body size) — cap at 50 and paginate carousels?
+| Topic | Decision |
+|-------|----------|
+| `game_ratings` avg | Query on load v1; materialized → v1.1 |
+| Related ID cap | **50** per batch ([ludi-decisions](../ludi-decisions/SKILL.md)) |
