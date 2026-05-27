@@ -46,3 +46,6 @@ next-env.d.ts
 
 # nested skill-repo metadata inside cloned skill directories
 .cursor/skills/*/.git/
+
+# local MCP config (may contain PATs)
+.cursor/mcp.json
