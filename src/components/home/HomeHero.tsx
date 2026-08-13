@@ -34,7 +34,7 @@ export function HomeHero({ games }: { games: FeaturedGame[] }) {
 
   return (
     <section
-      className="grain relative isolate h-[68vh] max-h-[44rem] min-h-[26rem] w-full overflow-hidden bg-void"
+      className="grain relative isolate h-[72vh] max-h-[47rem] min-h-[28rem] w-full overflow-hidden bg-void"
       aria-roledescription="carousel"
       aria-label="Featured games"
       onMouseEnter={() => setPaused(true)}

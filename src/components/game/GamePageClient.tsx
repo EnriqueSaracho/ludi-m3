@@ -189,7 +189,7 @@ export function GamePageClient({
     <article>
       {/* Hero: wide art, title over it, score row seated on the black base. */}
       <header className="grain relative isolate bg-void">
-        <div className="relative h-[48vh] max-h-[34rem] min-h-[20rem] w-full overflow-hidden">
+        <div className="relative h-[69vh] max-h-[44rem] min-h-[26rem] w-full overflow-hidden">
           {backdropUrl && (
             <Image
               src={backdropUrl}
