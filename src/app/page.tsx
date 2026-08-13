@@ -52,8 +52,10 @@ export default async function HomePage() {
     <>
       <HomeHero games={featured} />
 
-      {/* Explore — centred heading, pill search, cover-only grid. */}
-      <section className="shell py-20">
+      {/* Explore — centred heading, pill search, cover-only grid. The hero
+          already ends in a deep field of void, so this leads in tighter than
+          the page's usual py-20 rhythm. */}
+      <section className="shell pb-20 pt-14">
         <Reveal className="flex flex-col items-center gap-7">
           <h2 className="text-3xl font-light tracking-tight md:text-[2rem]">
             Explore Games

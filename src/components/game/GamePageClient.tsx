@@ -187,62 +187,64 @@ export function GamePageClient({
 
   return (
     <article>
-      {/* Hero: wide art, title over it, score row seated on the black base. */}
-      <header className="grain relative isolate bg-void">
-        <div className="relative h-[69vh] max-h-[44rem] min-h-[26rem] w-full overflow-hidden">
-          {backdropUrl && (
-            <Image
-              src={backdropUrl}
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center"
-            />
-          )}
-          <div className="scrim-b absolute inset-0" />
+      {/* Hero: wide art with the whole title block seated in the bottom-left,
+          where the scrim guarantees dark ground under white type. A hairline
+          rule ties the genres and the scores into one foot. */}
+      <header className="grain relative isolate flex h-[80vh] max-h-[52rem] min-h-[32rem] w-full flex-col justify-end overflow-hidden bg-void">
+        {backdropUrl && (
+          <Image
+            src={backdropUrl}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="-z-10 object-cover object-center"
+          />
+        )}
+        <div className="scrim-b pointer-events-none absolute inset-0 -z-10" />
+        {/* Insurance for art that stays bright down in the bottom-left. */}
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-void/70 via-void/15 to-transparent" />
 
-          <div className="absolute inset-x-0 top-0 p-6 md:p-10">
-            <div className="shell-wide px-0">
-              <h1 className="max-w-3xl text-balance text-3xl font-light leading-tight tracking-tight text-white drop-shadow-[0_2px_12px_rgb(0_0_0/0.8)] md:text-[2.75rem]">
-                {game.name}
-              </h1>
-              <p className="mt-2 text-sm text-white/70">
-                {[game.game_type?.type, releaseYear].filter(Boolean).join(" · ")}
-              </p>
+        <div className="shell-wide pb-10 md:pb-12">
+          <p className="text-[0.6875rem] uppercase tracking-[0.2em] text-white/55">
+            {[game.game_type?.type, releaseYear].filter(Boolean).join(" · ")}
+          </p>
+          <h1 className="mt-3 max-w-3xl text-balance text-4xl font-light leading-[1.05] tracking-tight text-white drop-shadow-[0_2px_16px_rgb(0_0_0/0.7)] md:text-5xl lg:text-[3.25rem]">
+            {game.name}
+          </h1>
+
+          <div className="mt-7 h-px w-full bg-white/15" />
+
+          <div className="mt-5 flex flex-wrap items-end justify-between gap-6">
+            <div className="flex flex-wrap gap-2">
+              {game.genres?.slice(0, 4).map((g) => (
+                <span
+                  key={g.name}
+                  className="rounded-sm border border-white/20 px-2 py-1 text-[0.6875rem] uppercase tracking-wider text-white/70"
+                >
+                  {g.name}
+                </span>
+              ))}
             </div>
-          </div>
-        </div>
 
-        <div className="shell-wide flex flex-wrap items-end justify-between gap-6 pb-8">
-          <div className="flex flex-wrap gap-2">
-            {game.genres?.slice(0, 4).map((g) => (
-              <span
-                key={g.name}
-                className="rounded-sm border border-white/20 px-2 py-1 text-[0.6875rem] uppercase tracking-wider text-white/70"
-              >
-                {g.name}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex items-end gap-8">
-            <ScoreStat
-              label="Ludi"
-              value={
-                data.ludiAvgRating != null ? data.ludiAvgRating.toFixed(1) : "N/A"
-              }
-              icon
-            />
-            <ScoreStat
-              label="Critics"
-              value={
-                game.aggregated_rating != null
-                  ? String(Math.round(game.aggregated_rating))
-                  : "N/A"
-              }
-              boxed
-            />
+            <div className="flex items-end gap-8">
+              <ScoreStat
+                label="Ludi"
+                value={
+                  data.ludiAvgRating != null ? data.ludiAvgRating.toFixed(1) : "N/A"
+                }
+                icon
+              />
+              <ScoreStat
+                label="Critics"
+                value={
+                  game.aggregated_rating != null
+                    ? String(Math.round(game.aggregated_rating))
+                    : "N/A"
+                }
+                boxed
+              />
+            </div>
           </div>
         </div>
       </header>
