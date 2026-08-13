@@ -24,11 +24,13 @@ export default async function SearchPage({ searchParams }: Props) {
 
   if (!q) {
     return (
-      <div className="mx-auto max-w-lg text-center">
-        <h1 className="text-2xl font-semibold">Search games</h1>
-        <p className="mt-2 text-muted-foreground">
-          Enter at least 2 characters in the search bar to find games.
-        </p>
+      <div className="shell py-24">
+        <div className="mx-auto max-w-lg text-center">
+          <h1 className="text-3xl font-light tracking-tight">Search games</h1>
+          <p className="mt-3 text-[0.9375rem] text-muted-foreground">
+            Enter at least 2 characters in the search bar to find games.
+          </p>
+        </div>
       </div>
     );
   }
@@ -76,12 +78,12 @@ export default async function SearchPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">
-        Results for &ldquo;{q}&rdquo;
+    <div className="shell-wide py-10">
+      <h1 className="mb-8 text-2xl font-light tracking-tight">
+        Results for: <strong className="font-bold text-white">{q}</strong>
       </h1>
       <SearchShell>
-        <div className="flex gap-8">
+        <div className="flex gap-10">
           <SearchFilters
             platforms={platformsFacet}
             genres={genresFacet}

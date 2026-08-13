@@ -7,9 +7,8 @@ import {
   MAX_CUSTOM_LISTS,
   MAX_LIST_ITEMS,
   PLAY_STATUS_TO_LIST,
-  STATUS_LIST_KEYS,
+  isPlayStatusListKey,
   type PlayStatus,
-  type SystemListKey,
 } from "@/lib/game/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
@@ -108,11 +107,8 @@ export async function addToList(listId: string, igdbId: number) {
 
   if (!list || list.user_id !== user.id) throw new Error("List not found");
 
-  if (
-    list.system_key &&
-    STATUS_LIST_KEYS.includes(list.system_key as SystemListKey)
-  ) {
-    const playStatus = LIST_TO_PLAY_STATUS[list.system_key as keyof typeof LIST_TO_PLAY_STATUS];
+  if (isPlayStatusListKey(list.system_key)) {
+    const playStatus = LIST_TO_PLAY_STATUS[list.system_key];
     await applyPlayStatus(supabase, user.id, igdbId, playStatus);
     revalidatePath(`/game/${igdbId}`);
     revalidatePath("/profile");
@@ -148,11 +144,7 @@ export async function unsaveGame(igdbId: number) {
 
   const listIdsToClear =
     lists
-      ?.filter(
-        (l) =>
-          !l.system_key ||
-          STATUS_LIST_KEYS.includes(l.system_key as SystemListKey),
-      )
+      ?.filter((l) => !l.system_key || isPlayStatusListKey(l.system_key))
       .map((l) => l.id) ?? [];
 
   if (listIdsToClear.length > 0) {
@@ -189,10 +181,7 @@ export async function removeListItem(listId: string, igdbId: number) {
     .eq("list_id", listId)
     .eq("igdb_id", igdbId);
 
-  if (
-    list?.system_key &&
-    STATUS_LIST_KEYS.includes(list.system_key as SystemListKey)
-  ) {
+  if (isPlayStatusListKey(list?.system_key)) {
     const { data: status } = await supabase
       .from("user_game_status")
       .select("play_status")
@@ -200,7 +189,7 @@ export async function removeListItem(listId: string, igdbId: number) {
       .eq("igdb_id", igdbId)
       .maybeSingle();
 
-    const expected = list.system_key as SystemListKey;
+    const expected = list.system_key;
     const statusKey =
       status?.play_status && PLAY_STATUS_TO_LIST[status.play_status];
 

@@ -28,6 +28,15 @@ export function compositeRating(game: {
   return Math.round(avg * 10) / 10;
 }
 
+export function formatReleaseYear(
+  firstReleaseDate: number | null | undefined,
+): string | null {
+  if (!firstReleaseDate) return null;
+  const date = new Date(firstReleaseDate * 1000);
+  if (Number.isNaN(date.getTime())) return null;
+  return String(date.getUTCFullYear());
+}
+
 export function formatReleaseDate(
   firstReleaseDate: number | null | undefined,
 ): string | null {

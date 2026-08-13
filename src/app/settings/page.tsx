@@ -16,8 +16,8 @@ export default async function SettingsPage() {
     .single();
 
   return (
-    <div className="mx-auto max-w-md space-y-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+    <div className="shell max-w-md space-y-8 py-12">
+      <h1 className="text-3xl font-light tracking-tight">Settings</h1>
       <SettingsForm
         email={user.email ?? ""}
         preferredCountry={profile?.preferred_country ?? "US"}

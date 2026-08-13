@@ -1,6 +1,7 @@
 import {
   compositeRating,
   formatReleaseDate,
+  formatReleaseYear,
 } from "@/lib/game/composite-rating";
 import type { GameCardPayload } from "@/lib/game/types";
 
@@ -25,6 +26,7 @@ export function toGameCardPayload(game: IgdbGameRow): GameCardPayload {
     coverImageId: game.cover?.image_id ?? null,
     compositeRating: compositeRating(game),
     releaseDate: formatReleaseDate(game.first_release_date),
+    releaseYear: formatReleaseYear(game.first_release_date),
     contentType: game.game_type?.type ?? null,
   };
 }

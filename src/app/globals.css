@@ -2,25 +2,27 @@
 @import "../styles/design-tokens.css";
 
 :root {
-  --background: var(--surface-elevated);
+  --background: var(--surface);
   --foreground: var(--text-title);
-  --card: var(--surface-elevated);
+  --card: var(--elevated);
   --card-foreground: var(--text-title);
-  --popover: var(--surface-elevated);
+  --popover: var(--elevated);
   --popover-foreground: var(--text-title);
   --primary: var(--accent);
   --primary-foreground: #ffffff;
-  --secondary: var(--surface);
+  --secondary: var(--sunken);
   --secondary-foreground: var(--text-title);
-  --muted: var(--surface);
+  --muted: var(--sunken);
   --muted-foreground: var(--text-muted);
-  --accent-subtle: color-mix(in srgb, var(--text-title) 6%, var(--surface-elevated));
+  /* The shadcn primitives use `accent` for their neutral hover wash, not for
+     the brand colour. Brand purple is exposed separately as `brand`. */
+  --accent-subtle: var(--raised);
   --accent-subtle-foreground: var(--text-title);
   --destructive: var(--danger);
   --destructive-foreground: #ffffff;
   --input: var(--border);
   --ring: var(--accent);
-  --radius: var(--radius-md);
+  --radius: var(--radius-control);
 }
 
 @theme inline {
@@ -40,18 +42,244 @@
   --color-accent-foreground: var(--accent-subtle-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border, #e2e8f0);
+  --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: var(--radius);
-  --radius-lg: var(--radius-lg);
-  --font-sans: var(--font-geist-sans);
+
+  /* Surface ladder, addressable directly as bg-void / bg-elevated / … */
+  --color-void: var(--void);
+  --color-sunken: var(--sunken);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-raised: var(--raised);
+
+  /* Brand purple and the softer tint used for links and active labels. */
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-active: var(--accent-active);
+  --color-brand-tint: var(--accent-tint);
+
+  --color-copy: var(--text-body);
+  --color-faint: var(--text-faint);
+  --color-hairline: var(--border);
+  --color-hairline-strong: var(--border-strong);
+
+  --radius-sm: 2px;
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-cover);
+
+  --font-sans: var(--font-roboto);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+@layer base {
+  body {
+    background: var(--surface);
+    color: var(--text-body);
+    font-family: var(--font-sans);
+  }
+
+  /* Headings in the prototype are set light and large rather than bold. */
+  h1,
+  h2,
+  h3 {
+    color: var(--text-title);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* Page gutters. The nav and full-bleed bands sit outside these, so pages opt
+   in per section rather than inheriting one container from the layout. */
+@utility shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--shell);
+  padding-inline: 1.5rem;
+}
+
+@utility shell-wide {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--shell-wide);
+  padding-inline: 1.5rem;
+}
+
+/* The rounded track under the prototype's horizontal tab strip. */
+@utility scroll-pill {
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--sunken);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+  }
+}
+
+/* Hides the scrollbar on carousels that have their own dot indicators. */
+@utility scroll-hidden {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The shadcn primitives ship `animate-in` / `fade-in-0` classes from
+   tailwindcss-animate, which this project does not install. These drive the
+   same open/close transitions off Radix's data-state instead. */
+@keyframes ludi-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ludi-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ludi-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+
+@layer base {
+  [data-slot="dialog-overlay"][data-state="open"] {
+    animation: ludi-fade-in 0.2s ease-out;
+  }
+
+  [data-slot="dialog-overlay"][data-state="closed"] {
+    animation: ludi-fade-out 0.15s ease-in forwards;
+  }
+
+  [data-slot="dialog-content"][data-state="open"],
+  [data-slot="select-content"][data-state="open"],
+  [data-slot="dropdown-menu-content"][data-state="open"],
+  [data-slot="dropdown-menu-sub-content"][data-state="open"] {
+    animation: ludi-pop-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  [data-slot="dialog-content"][data-state="closed"],
+  [data-slot="select-content"][data-state="closed"],
+  [data-slot="dropdown-menu-content"][data-state="closed"] {
+    animation: ludi-fade-out 0.12s ease-in forwards;
+  }
+}
+
+@keyframes ludi-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Scroll-driven reveal. Content is visible by default and only animates where
+   `animation-timeline` is supported, so a browser without it — or a page whose
+   JS never runs — still shows everything. The range ends at `entry 90%`, so
+   anything already on screen at load renders at the finished state. */
+@utility reveal {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      animation: ludi-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 10% entry 90%;
+    }
+  }
+}
+
+@keyframes ludi-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* The track holds two identical copies, so half a turn loops seamlessly. */
+    transform: translateX(-50%);
+  }
+}
+
+@utility marquee-track {
+  animation: ludi-marquee 38s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* Fine film grain. Flat dark greys band badly on wide gradients; a little
+   noise breaks the steps up and gives the hero art some tooth. */
+@utility grain {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+/* Scrim for text laid over cover art or screenshots. */
+@utility scrim-b {
+  background: linear-gradient(
+    to top,
+    var(--void) 0%,
+    color-mix(in srgb, var(--void) 72%, transparent) 28%,
+    color-mix(in srgb, var(--void) 28%, transparent) 58%,
+    transparent 100%
+  );
+}
+
+@utility scrim-l {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--void) 88%, transparent) 0%,
+    color-mix(in srgb, var(--void) 55%, transparent) 45%,
+    transparent 80%
+  );
+}
+
+@layer base {
+  /* One focus treatment everywhere, in brand purple. */
+  :focus-visible {
+    outline: 2px solid var(--accent-hover);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

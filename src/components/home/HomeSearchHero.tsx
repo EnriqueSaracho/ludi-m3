@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 
+/** The centred pill search that sits under the "Explore Games" heading. */
 export function HomeSearchHero() {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -17,28 +17,29 @@ export function HomeSearchHero() {
   }
 
   return (
-    <section className="rounded-xl bg-gradient-to-b from-muted/50 to-background px-6 py-12 text-center">
-      <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-        Every game. Every store. One place.
-      </h1>
-      <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-        Metadata, prices, and your personal library — aggregated for you.
-      </p>
-      <form
-        onSubmit={submit}
-        className="mx-auto mt-8 flex max-w-md gap-2"
-        role="search"
+    <form
+      onSubmit={submit}
+      role="search"
+      className="group relative mx-auto w-full max-w-sm"
+    >
+      <label htmlFor="home-search" className="sr-only">
+        Search games
+      </label>
+      <input
+        id="home-search"
+        type="search"
+        placeholder="Search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="h-11 w-full rounded-full border border-hairline-strong bg-void pl-5 pr-12 text-sm text-foreground transition-all duration-300 placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
+      />
+      <button
+        type="submit"
+        aria-label="Search"
+        className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-brand hover:text-white"
       >
-        <Input
-          type="search"
-          placeholder="Search games…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="flex-1"
-          aria-label="Search games"
-        />
-        <Button type="submit">Search</Button>
-      </form>
-    </section>
+        <Search className="h-4 w-4" strokeWidth={1.5} />
+      </button>
+    </form>
   );
 }

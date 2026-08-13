@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { igdbFetch } from "@/lib/igdb/client";
 import { toGameCardPayload, type IgdbGameRow } from "@/lib/game/normalize";
-import type { GameCardPayload } from "@/lib/game/types";
+import { CARD_PAYLOAD_VERSION, type GameCardPayload } from "@/lib/game/types";
 import { buildIgdbSearchBody, type SearchParams } from "@/lib/search/build-query";
 
 export type SearchResult = {
@@ -31,7 +31,7 @@ export async function searchGames(params: SearchParams): Promise<SearchResult> {
         hasMore,
       };
     },
-    ["search", cacheKey(params)],
+    ["search", CARD_PAYLOAD_VERSION, cacheKey(params)],
     { revalidate: 600 },
   );
 

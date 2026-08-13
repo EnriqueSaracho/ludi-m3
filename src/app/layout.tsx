@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Roboto, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import { SiteNav } from "@/components/nav/SiteNav";
+import { SiteFooter } from "@/components/nav/SiteFooter";
+import { SmoothScroll } from "@/components/motion/SmoothScroll";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  variable: "--font-roboto",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -28,15 +31,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${roboto.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <Suspense fallback={<header className="h-14 border-b" />}>
+      <body className="flex min-h-full flex-col bg-surface">
+        <SmoothScroll />
+        <Suspense
+          fallback={<header className="h-14 border-b border-hairline bg-elevated" />}
+        >
           <SiteNav />
         </Suspense>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-          {children}
-        </main>
+        {/* No container here — pages opt into `shell` so heroes and feature
+            bands can run full-bleed the way the prototype does. */}
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

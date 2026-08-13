@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/loading/Skeleton";
 
 export default function ProfileLoading() {
   return (
-    <div className="space-y-10">
+    <div className="shell space-y-12 py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <Skeleton className="h-20 w-20 shrink-0 rounded-full" />
         <div className="flex flex-1 flex-wrap items-end gap-2">

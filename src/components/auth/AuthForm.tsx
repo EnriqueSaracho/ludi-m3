@@ -8,6 +8,7 @@ import { sanitizeNextParam } from "@/lib/auth/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Wordmark } from "@/components/nav/Wordmark";
 
 type Mode = "login" | "signup" | "forgot";
 
@@ -74,11 +75,18 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-sm space-y-6">
+    <div className="mx-auto w-full max-w-sm space-y-7 px-6 py-16">
       <div className="text-center">
-        <Link href="/" className="text-2xl font-semibold">
-          Ludi
+        <Link href="/" className="inline-block">
+          <Wordmark className="text-3xl" />
         </Link>
+        <p className="mt-3 text-[0.8125rem] text-muted-foreground">
+          {mode === "signup"
+            ? "Create your account to start tracking games."
+            : mode === "forgot"
+              ? "We'll email you a link to reset your password."
+              : "Welcome back."}
+        </p>
       </div>
 
       <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -151,8 +159,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       {mode !== "forgot" && (
         <>
-          <div className="relative text-center text-sm text-muted-foreground">
-            <span className="bg-background px-2">or</span>
+          <div className="flex items-center gap-4">
+            <span className="h-px flex-1 bg-hairline" />
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              or
+            </span>
+            <span className="h-px flex-1 bg-hairline" />
           </div>
           <Button
             type="button"

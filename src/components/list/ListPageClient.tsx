@@ -57,18 +57,18 @@ function SortableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-start gap-4 rounded-lg border p-3"
+      className="flex items-start gap-4 rounded-md border border-hairline bg-elevated p-3 transition-colors hover:border-hairline-strong"
     >
       <button
         type="button"
-        className="mt-8 cursor-grab touch-none text-muted-foreground"
+        className="mt-8 cursor-grab touch-none px-1 text-muted-foreground transition-colors hover:text-white"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
       >
         ⋮⋮
       </button>
-      <GameCard game={game} size="sm" showSave={false} className="flex-1" />
+      <GameCard game={game} size="sm" showSave={false} />
       <Button
         variant="ghost"
         size="sm"
@@ -158,16 +158,17 @@ export function ListPageClient({ list, initialCards, initialItems }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="shell space-y-6 py-10">
       <div className="flex flex-wrap items-center gap-3">
         {list.is_system ? (
-          <h1 className="text-2xl font-semibold">{list.name}</h1>
+          <h1 className="text-3xl font-light tracking-tight">{list.name}</h1>
         ) : (
           <>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="max-w-xs text-xl font-semibold"
+              aria-label="List name"
+              className="h-11 max-w-xs text-lg"
             />
             <Button
               size="sm"

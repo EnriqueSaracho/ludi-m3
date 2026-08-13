@@ -1,30 +1,46 @@
+/* Ludi design tokens.
+
+   Values are sampled from the Figma prototype in docs/design/inspiration.
+   Ludi is dark-only — there is no light theme, so these are absolute rather
+   than paired with a `prefers-color-scheme` override. */
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  --surface: #f8f9fa;
-  --surface-elevated: #ffffff;
-  --text-title: #0f1419;
-  --text-body: #3d4f5c;
-  --text-muted: #6b7c8a;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --border: #e2e8f0;
-  --danger: #dc2626;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
-}
+  /* Surfaces, darkest to lightest. `void` is the full-bleed feature band,
+     `surface` the page ground, `elevated` panels/nav, `sunken` the recessed
+     wells that inputs and scrolling filter lists sit in. */
+  --void: #000000;
+  --sunken: #1c1e20;
+  --surface: #26292b;
+  --elevated: #2f3336;
+  --raised: #3a3e42;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #0f1419;
-    --surface-elevated: #1a2332;
-    --text-title: #f1f5f9;
-    --text-body: #94a3b8;
-    --text-muted: #64748b;
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --border: #334155;
-    --danger: #f87171;
-  }
+  /* Brand purple. */
+  --accent: #8432b2;
+  --accent-hover: #9840c6;
+  --accent-active: #6d2795;
+  --accent-tint: #c895e8;
+
+  --text-title: #ffffff;
+  --text-body: #c8cbcd;
+  --text-muted: #8b9094;
+  --text-faint: #6a6e71;
+
+  --border: #3c4043;
+  --border-strong: #55595c;
+
+  --danger: #ef5350;
+  --success: #57b85c;
+
+  /* The prototype is built on crisp, near-square corners. Only cover art and
+     the search pill round noticeably, so there is no large general radius. */
+  --radius-control: 4px;
+  --radius-panel: 4px;
+  --radius-cover: 6px;
+
+  --shell: 75rem;
+  --shell-wide: 90rem;
+
+  --font-sans: var(--font-roboto), system-ui, sans-serif;
 }

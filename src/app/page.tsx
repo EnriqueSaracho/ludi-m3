@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getListPreview } from "@/lib/lists/queries";
-import { getNewReleases, getTopRated } from "@/lib/home/discovery";
+import { getFeatured, getNewReleases, getTopRated } from "@/lib/home/discovery";
 import { GameCard } from "@/components/game-card/GameCard";
+import { GameRow } from "@/components/game-card/GameRow";
+import { HomeHero } from "@/components/home/HomeHero";
+import { CoverGrid } from "@/components/home/CoverGrid";
+import { PlatformBand } from "@/components/home/PlatformBand";
+import { PromoBanner } from "@/components/home/PromoBanner";
 import { HomeSearchHero } from "@/components/home/HomeSearchHero";
 import { RecentGamesRow } from "@/components/home/RecentGamesRow";
+import { Reveal } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/button";
 
 export default async function HomePage() {
@@ -13,7 +19,8 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [newReleases, topRated] = await Promise.all([
+  const [featured, newReleases, topRated] = await Promise.all([
+    getFeatured(),
     getNewReleases(),
     getTopRated(),
   ]);
@@ -33,107 +40,119 @@ export default async function HomePage() {
     const want = lists?.find((l) => l.system_key === "want_to_play");
     if (playing) {
       playingListId = playing.id;
-      playingCards = await getListPreview(playing.id, 6);
+      playingCards = await getListPreview(playing.id, 10);
     }
     if (want) {
       wantListId = want.id;
-      wantCards = await getListPreview(want.id, 6);
+      wantCards = await getListPreview(want.id, 10);
     }
   }
 
   return (
-    <div className="space-y-12">
-      <HomeSearchHero />
+    <>
+      <HomeHero games={featured} />
 
-      {user ? (
-        <>
+      {/* Explore — centred heading, pill search, cover-only grid. */}
+      <section className="shell py-20">
+        <Reveal className="flex flex-col items-center gap-7">
+          <h2 className="text-3xl font-light tracking-tight md:text-[2rem]">
+            Explore Games
+          </h2>
+          <HomeSearchHero />
+        </Reveal>
+        <Reveal className="mt-12">
+          <CoverGrid games={topRated.slice(0, 12)} />
+        </Reveal>
+      </section>
+
+      {user && (playingCards.length > 0 || wantCards.length > 0) && (
+        <section className="shell space-y-14 pb-20">
           {playingCards.length > 0 && (
-            <section>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Continue playing</h2>
-                {playingListId && (
-                  <Link
-                    href={`/list/${playingListId}`}
-                    className="text-sm text-primary"
-                  >
-                    See all
-                  </Link>
-                )}
-              </div>
-              <div className="flex gap-4 overflow-x-auto pb-2">
-                {playingCards.map((g) => (
-                  <GameCard key={g.igdbId} game={g} size="sm" showSave={false} />
-                ))}
-              </div>
-            </section>
+            <Reveal>
+              <SectionHead
+                title="Continue playing"
+                href={playingListId ? `/list/${playingListId}` : undefined}
+              />
+              <GameRow games={playingCards} />
+            </Reveal>
           )}
           {wantCards.length > 0 && (
-            <section>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Want to play</h2>
-                {wantListId && (
-                  <Link
-                    href={`/list/${wantListId}`}
-                    className="text-sm text-primary"
-                  >
-                    See all
-                  </Link>
-                )}
-              </div>
-              <div className="flex gap-4 overflow-x-auto pb-2">
-                {wantCards.map((g) => (
-                  <GameCard key={g.igdbId} game={g} size="sm" showSave={false} />
-                ))}
-              </div>
-            </section>
+            <Reveal>
+              <SectionHead
+                title="Want to play"
+                href={wantListId ? `/list/${wantListId}` : undefined}
+              />
+              <GameRow games={wantCards} />
+            </Reveal>
           )}
-        </>
-      ) : (
-        <section className="rounded-lg border border-border bg-card p-6 text-center">
-          <p className="text-muted-foreground">
-            Sign in to track games and build lists.
-          </p>
-          <Button asChild className="mt-4">
-            <Link href="/login?next=/">Sign in</Link>
-          </Button>
         </section>
       )}
 
-      <RecentGamesRow />
+      <PlatformBand />
 
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">New releases</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {newReleases.map((g) => (
-            <GameCard key={g.igdbId} game={g} showSave={false} />
-          ))}
-        </div>
-      </section>
+      <div className="py-20">
+        <Reveal>
+          <PromoBanner
+            title="Trailers, Art & More!"
+            body="Dive into a massive collection of cinematic trailers, raw gameplay footage, breathtaking screenshots, and exclusive concept art."
+            ctaLabel="Check it out"
+            href={featured[0] ? `/game/${featured[0].igdbId}` : "/search?q=art"}
+            backdropImageId={featured[1]?.backdropImageId ?? null}
+          />
+        </Reveal>
+      </div>
 
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">Top rated</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {topRated.map((g) => (
-            <GameCard key={g.igdbId} game={g} showSave={false} />
-          ))}
-        </div>
+      <section className="shell space-y-14 pb-20">
+        <Reveal>
+          <RecentGamesRow />
+        </Reveal>
+
+        <Reveal>
+          <SectionHead title="New releases" />
+          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {newReleases.map((g) => (
+              <GameCard key={g.igdbId} game={g} showSave={false} />
+            ))}
+          </div>
+        </Reveal>
       </section>
 
       {!user && (
-        <section className="rounded-lg border border-border p-8 text-center">
-          <h2 className="text-xl font-semibold">Start your library</h2>
-          <p className="mt-2 text-muted-foreground">
-            Save games, track play status, and rate what you play.
-          </p>
-          <div className="mt-4 flex justify-center gap-3">
-            <Button asChild variant="outline">
-              <Link href="/login">Login</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/signup">Sign up</Link>
-            </Button>
-          </div>
+        <section className="shell pb-24">
+          <Reveal className="grain relative overflow-hidden rounded-md border border-hairline bg-elevated px-8 py-14 text-center">
+            <h2 className="text-2xl font-light tracking-tight md:text-3xl">
+              Organize Your Gaming Experience
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-[0.8125rem] leading-relaxed text-muted-foreground">
+              Save games, track what you&apos;re playing, rate what you finish,
+              and build lists that follow you across every store.
+            </p>
+            <div className="mt-7 flex justify-center gap-3">
+              <Button asChild size="lg">
+                <Link href="/signup">Try it out</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href="/login">Login</Link>
+              </Button>
+            </div>
+          </Reveal>
         </section>
+      )}
+    </>
+  );
+}
+
+function SectionHead({ title, href }: { title: string; href?: string }) {
+  return (
+    <div className="mb-5 flex items-baseline justify-between gap-4">
+      <h2 className="text-xl font-light tracking-tight">{title}</h2>
+      {href && (
+        <Link
+          href={href}
+          className="text-[0.8125rem] text-muted-foreground transition-colors hover:text-brand-tint"
+        >
+          See all
+        </Link>
       )}
     </div>
   );

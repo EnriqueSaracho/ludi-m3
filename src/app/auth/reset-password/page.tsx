@@ -30,8 +30,8 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm space-y-4">
-      <h1 className="text-xl font-semibold">Set new password</h1>
+    <div className="mx-auto max-w-sm space-y-5 px-6 py-16">
+      <h1 className="text-2xl font-light tracking-tight">Set new password</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="password">New password</Label>
@@ -59,7 +59,10 @@ export default function ResetPasswordPage() {
           Update password
         </Button>
       </form>
-      <Link href="/login" className="text-sm text-primary">
+      <Link
+        href="/login"
+        className="inline-block text-sm text-brand-tint transition-colors hover:text-white"
+      >
         Back to login
       </Link>
     </div>
