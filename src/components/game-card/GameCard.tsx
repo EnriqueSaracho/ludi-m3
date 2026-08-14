@@ -42,10 +42,7 @@ export function GameCard({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const coverUrl = igdbImageUrl(
-    game.coverImageId,
-    size === "sm" ? "cover_small" : "cover_big",
-  );
+  const coverUrl = igdbImageUrl(game.coverImageId, "cover_big");
   const link = href ?? `/game/${game.igdbId}`;
   const year = game.releaseYear ?? "TBD";
 
