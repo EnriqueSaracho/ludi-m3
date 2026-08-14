@@ -116,7 +116,7 @@ export function HomeHero({ games }: { games: FeaturedGame[] }) {
               aria-selected={i === index}
               aria-label={g.name}
               onClick={() => go(i)}
-              className="group py-2"
+              className="group cursor-pointer py-2"
             >
               <span
                 className={cn(

@@ -111,7 +111,7 @@ export function SiteNav() {
                 onBlur={() => {
                   if (!query) setSearchOpen(false);
                 }}
-                className="h-9 w-full rounded-full border border-hairline-strong bg-void pl-9 pr-9 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="h-9 w-full rounded-full border border-hairline-strong bg-void pl-9 pr-9 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand [&::-webkit-search-cancel-button]:appearance-none"
               />
               {query && (
                 <button
@@ -120,7 +120,7 @@ export function SiteNav() {
                     setQuery("");
                     inputRef.current?.focus();
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:text-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-full p-1 text-muted-foreground transition-colors hover:text-white"
                   aria-label="Clear search"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -131,7 +131,7 @@ export function SiteNav() {
             <button
               type="button"
               onClick={openSearch}
-              className="rounded-full p-2 text-copy transition-colors hover:bg-raised hover:text-white"
+              className="cursor-pointer rounded-full p-2 text-copy transition-colors hover:bg-raised hover:text-white"
               aria-label="Search games"
               aria-expanded={false}
             >
@@ -148,7 +148,7 @@ export function SiteNav() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-full outline-none transition-opacity hover:opacity-85"
+                  className="flex cursor-pointer items-center gap-2 rounded-full outline-none transition-opacity hover:opacity-85"
                   aria-haspopup="menu"
                 >
                   <span className="hidden text-sm text-copy md:inline">
