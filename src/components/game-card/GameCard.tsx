@@ -8,7 +8,7 @@ import { igdbImageUrl } from "@/lib/igdb/images";
 import type { GameCardPayload } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { AddToListMenu } from "@/components/game-card/AddToListMenu";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 type Props = {
   game: GameCardPayload;
@@ -19,6 +19,8 @@ type Props = {
   showSave?: boolean;
   isSaved?: boolean;
   className?: string;
+  /** Controls layered over the cover art — see the list page drag/remove chips. */
+  overlay?: ReactNode;
   listMembership?: Array<{
     id: string;
     name: string;
@@ -37,6 +39,7 @@ export function GameCard({
   showSave = true,
   isSaved = false,
   className,
+  overlay,
   listMembership,
 }: Props) {
   const router = useRouter();
@@ -86,6 +89,14 @@ export function GameCard({
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
       </Link>
+
+      {/* Sits over the cover box but outside the link, so overlaid controls stay
+          clickable, and rides the same hover lift as the art beneath them. */}
+      {overlay && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[3/4] transition-transform duration-300 group-hover:-translate-y-1">
+          {overlay}
+        </div>
+      )}
 
       <div className="mt-2.5 flex min-w-0 flex-col">
         <Link href={link} className="min-w-0 rounded-sm">

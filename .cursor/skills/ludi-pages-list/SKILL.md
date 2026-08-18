@@ -49,19 +49,28 @@ Related skills: [ludi-pages-profile](../ludi-pages-profile/SKILL.md), [ludi-data
 
 ## Queue UI
 
-**Vertical reorderable list** (not horizontal scroll).
+**Reorderable cover grid** — same column ramp as `/search` (2 → 3 → 4 → 5), so a
+list reads at the same density as search results rather than one row per game.
 
 | Feature | Spec |
 |---------|------|
-| Item | GameCard `md` + drag handle + optional platform label from `list_items.platform_name` |
-| Reorder | Drag-and-drop (`@dnd-kit/core`) — update `sort_order` on drop. **Desktop:** pointer drag. **Mobile:** **long-press** (~500ms) to initiate drag (`TouchSensor` delay). |
-| Remove | Per-item “Remove” or X — see remove matrix below |
+| Item | GameCard `md` with `showSave={false}`, plus overlay chips on the cover |
+| Reorder | Drag-and-drop (`@dnd-kit/core`, `rectSortingStrategy`) — update `sort_order` on drop. **Desktop:** pointer drag. **Mobile:** **long-press** (~500ms) to initiate drag (`TouchSensor` delay). |
+| Remove | X chip top-right of the cover — see remove matrix below |
 | Add games | Button “Add games” → `/search` or opens search modal v1.1 |
 
-### Layout options
+### Overlay chips
 
-- **Grid queue:** cards in single column (mobile) or 2-col (desktop) with handle on left.
-- On drag: lift shadow, `aria-grabbed`, keyboard sortable optional v1.1.
+Controls live in `GameCard`’s `overlay` slot: a box positioned over the cover
+but **outside** the cover `<Link>`, so the chips stay clickable and ride the
+same hover lift as the art.
+
+- **Grab chip** (top-left): grip icon + 1-based queue position, `cursor-grab`,
+  `touch-none`. Carries the dnd-kit `attributes`/`listeners`.
+- **Remove chip** (top-right): X icon.
+- Revealed by `group-hover` / `group-focus-within`; pinned visible under
+  `[@media(hover:none)]` (touch has no hover to reveal them) and while dragging.
+- A top scrim keeps both chips legible over bright cover art.
 
 ### Remove behavior
 

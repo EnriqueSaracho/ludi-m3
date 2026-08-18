@@ -28,12 +28,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // `<html>` is `min-h-full`, never `h-full`: pinning it to the viewport height
+  // freezes its border box, which kills the ResizeObserver Lenis measures with,
+  // so the page stops scrolling at whatever height it had when Lenis started.
+  // `<body>` uses `min-h-dvh` so the footer still sits at the bottom on short
+  // pages without depending on a height from `<html>`. See SmoothScroll.
   return (
     <html
       lang="en"
-      className={`${roboto.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${roboto.variable} ${geistMono.variable} min-h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-surface">
+      <body className="flex min-h-dvh flex-col bg-surface">
         <SmoothScroll />
         <Suspense
           fallback={<header className="h-14 border-b border-hairline bg-elevated" />}

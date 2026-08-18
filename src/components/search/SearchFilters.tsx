@@ -113,7 +113,7 @@ function FilterGroup({
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-2 rounded-t-md bg-elevated px-3 py-2.5 text-left text-sm transition-colors hover:bg-raised",
+          "flex w-full cursor-pointer items-center gap-2 rounded-t-md bg-elevated px-3 py-2.5 text-left text-sm transition-colors hover:bg-raised",
           !open && "rounded-b-md",
         )}
       >

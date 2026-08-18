@@ -103,7 +103,7 @@ export function SearchPageClient({
               aria-pressed={active}
               onClick={() => updateParam("quickFilter", f.key)}
               className={cn(
-                "shrink-0 whitespace-nowrap rounded-md border px-4 py-2 text-sm transition-all duration-200",
+                "shrink-0 cursor-pointer whitespace-nowrap rounded-md border px-4 py-2 text-sm transition-all duration-200",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 active
                   ? "border-brand bg-brand/10 text-white"

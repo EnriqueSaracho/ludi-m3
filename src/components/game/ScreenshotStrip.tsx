@@ -83,7 +83,7 @@ export function ScreenshotStrip({
               key={id}
               type="button"
               onClick={() => setLightbox(i)}
-              className="group relative aspect-video h-[9.5rem] shrink-0 overflow-hidden rounded-md bg-sunken ring-1 ring-white/10 transition-all duration-300 hover:ring-brand md:h-[13rem]"
+              className="group relative aspect-video h-[9.5rem] shrink-0 cursor-pointer overflow-hidden rounded-md bg-sunken ring-1 ring-white/10 transition-all duration-300 hover:ring-brand md:h-[13rem]"
               aria-label={`View screenshot ${i + 1} of ${imageIds.length}`}
             >
               <Image
@@ -116,7 +116,7 @@ export function ScreenshotStrip({
             type="button"
             onClick={() => setLightbox(null)}
             aria-label="Close"
-            className="absolute right-5 top-5 rounded-full border border-hairline-strong p-2 text-white transition-colors hover:bg-white hover:text-void"
+            className="absolute right-5 top-5 cursor-pointer rounded-full border border-hairline-strong p-2 text-white transition-colors hover:bg-white hover:text-void"
           >
             <X className="h-5 w-5" strokeWidth={1.5} />
           </button>
@@ -172,7 +172,7 @@ function RailArrow({
       onClick={onClick}
       aria-label={side === "left" ? "Scroll left" : "Scroll right"}
       className={cn(
-        "absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full",
+        "absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full",
         "border border-white/20 bg-void/70 text-white backdrop-blur transition-colors hover:border-brand hover:bg-brand",
         side === "left" ? "left-4" : "right-4",
       )}
@@ -196,7 +196,7 @@ function LightboxArrow({
       onClick={onClick}
       aria-label={side === "left" ? "Previous screenshot" : "Next screenshot"}
       className={cn(
-        "absolute top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full",
+        "absolute top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full",
         "border border-white/20 text-white transition-colors hover:bg-white hover:text-void",
         side === "left" ? "left-5" : "right-5",
       )}
