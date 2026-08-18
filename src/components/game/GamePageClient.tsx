@@ -11,13 +11,9 @@ import { GameRow } from "@/components/game-card/GameRow";
 import { ScreenshotStrip } from "@/components/game/ScreenshotStrip";
 import { AddToListMenu } from "@/components/game-card/AddToListMenu";
 import { Reveal } from "@/components/motion/Reveal";
-import { postComment, rateGame, setPlayStatus } from "@/lib/lists/actions";
+import { addToList, postComment, rateGame, removeListItem } from "@/lib/lists/actions";
 import type { GamePageData } from "@/lib/game/load-game-page";
-import {
-  PLAY_STATUS_TO_LIST,
-  isPlayStatusListKey,
-  type PlayStatus,
-} from "@/lib/game/types";
+import { PLAY_STATUS_TO_LIST, type PlayStatus } from "@/lib/game/types";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -42,7 +38,6 @@ type Props = {
     is_system: boolean;
     checked: boolean;
   }>;
-  playStatus: PlayStatus | null;
   platforms: string[];
 };
 
@@ -57,6 +52,18 @@ const RELATED_LABELS: Record<string, string> = {
   remasters: "Remasters",
   mods: "Mods",
 };
+
+/** Independent status toggles — a game can carry any combination at once. */
+const STATUS_OPTIONS: Array<{ value: PlayStatus; label: string }> = [
+  { value: "want", label: "Want to play" },
+  { value: "playing", label: "Playing" },
+  { value: "played", label: "Played" },
+];
+
+/** Platform selection is disabled for now — the label was ambiguous (played
+ *  on vs. want to play on vs. playing on). Storage/plumbing stays intact so
+ *  this can be re-enabled without redoing the data layer. */
+const PLATFORM_SELECTOR_ENABLED = false;
 
 type IgdbGame = {
   name: string;
@@ -79,19 +86,18 @@ export function GamePageClient({
   isAuthed,
   emailVerified,
   listMembership,
-  playStatus: initialStatus,
   platforms,
 }: Props) {
   const game = data.game as IgdbGame;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [lists, setLists] = useState(listMembership);
-  const [status, setStatus] = useState<PlayStatus | null>(initialStatus);
   const [platform, setPlatform] = useState<string>("");
   const [rating, setRating] = useState(data.userRating ?? 0);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [statusPending, startStatusTransition] = useTransition();
+  const [pendingStatus, setPendingStatus] = useState<PlayStatus | null>(null);
+  const [, startStatusTransition] = useTransition();
   const [ratePending, startRateTransition] = useTransition();
   const [commentPending, startCommentTransition] = useTransition();
 
@@ -113,10 +119,6 @@ export function GamePageClient({
   }, [listMembership]);
 
   useEffect(() => {
-    setStatus(initialStatus);
-  }, [initialStatus]);
-
-  useEffect(() => {
     addRecentGame({
       igdbId,
       name: game.name,
@@ -124,36 +126,33 @@ export function GamePageClient({
     });
   }, [igdbId, game.name, game.cover?.image_id]);
 
-  function handleStatusChange(value: string) {
-    if (!isAuthed || statusPending) return;
+  function toggleStatus(value: PlayStatus) {
+    if (!isAuthed || pendingStatus) return;
 
-    const previous = status;
-    const nextStatus = value === "none" ? null : (value as PlayStatus);
-    setStatus(nextStatus);
+    const listKey = PLAY_STATUS_TO_LIST[value];
+    const list = lists.find((l) => l.system_key === listKey);
+    if (!list) return;
+
+    const checked = !list.checked;
+    const previous = lists;
+    setLists((prev) =>
+      prev.map((l) => (l.id === list.id ? { ...l, checked } : l)),
+    );
+    setPendingStatus(value);
     setError(null);
 
     startStatusTransition(async () => {
       try {
-        if (value === "none") {
-          await setPlayStatus(igdbId, null);
+        if (checked) {
+          await addToList(list.id, igdbId);
         } else {
-          const platformArg = platform ? { platform_name: platform } : undefined;
-          await setPlayStatus(igdbId, value as PlayStatus, platformArg);
+          await removeListItem(list.id, igdbId);
         }
-        setLists((prev) =>
-          prev.map((l) => {
-            if (!isPlayStatusListKey(l.system_key)) return l;
-            if (value === "none") return { ...l, checked: false };
-            return {
-              ...l,
-              checked:
-                PLAY_STATUS_TO_LIST[value as PlayStatus] === l.system_key,
-            };
-          }),
-        );
       } catch (e) {
-        setStatus(previous);
+        setLists(previous);
         setError(e instanceof Error ? e.message : "Failed to update status");
+      } finally {
+        setPendingStatus(null);
       }
     });
   }
@@ -287,41 +286,48 @@ export function GamePageClient({
                     open={menuOpen}
                     onOpenChange={setMenuOpen}
                     onListsChange={setLists}
-                    onPlayStatusChange={setStatus}
                   />
 
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={status ?? "none"}
-                      onValueChange={handleStatusChange}
-                      disabled={statusPending}
-                    >
-                      <SelectTrigger className="w-full" aria-busy={statusPending}>
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No status</SelectItem>
-                        <SelectItem value="want">Want to play</SelectItem>
-                        <SelectItem value="playing">Playing</SelectItem>
-                        <SelectItem value="played">Played</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {statusPending && <Spinner size="sm" />}
+                  <div className="flex flex-wrap gap-2">
+                    {STATUS_OPTIONS.map(({ value, label }) => {
+                      const checked = lists.some(
+                        (l) =>
+                          l.system_key === PLAY_STATUS_TO_LIST[value] &&
+                          l.checked,
+                      );
+                      const isPending = pendingStatus === value;
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          size="sm"
+                          variant={checked ? "default" : "outline"}
+                          className="flex-1"
+                          aria-pressed={checked}
+                          disabled={isPending}
+                          onClick={() => toggleStatus(value)}
+                        >
+                          {isPending ? <Spinner size="sm" /> : label}
+                        </Button>
+                      );
+                    })}
                   </div>
 
-                  <Select value={platform} onValueChange={setPlatform}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Platform" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {platforms.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {PLATFORM_SELECTOR_ENABLED && (
+                    <Select value={platform} onValueChange={setPlatform}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Platform" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {platforms.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               ) : (
                 <Button asChild className="w-full">
