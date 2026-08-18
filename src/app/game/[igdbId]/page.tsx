@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getListMembership } from "@/lib/lists/queries";
 import { igdbImageUrl } from "@/lib/igdb/images";
 import { GamePageClient } from "@/components/game/GamePageClient";
-import type { PlayStatus } from "@/lib/game/types";
 
 type Props = {
   params: Promise<{ igdbId: string }>;
@@ -60,17 +59,9 @@ export default async function GamePage({ params }: Props) {
     game.platforms?.map((p) => p.name).filter((n): n is string => !!n) ?? [];
 
   let listMembership: Awaited<ReturnType<typeof getListMembership>> = [];
-  let playStatus: PlayStatus | null = null;
 
   if (user) {
     listMembership = await getListMembership(user.id, id);
-    const { data: status } = await supabase
-      .from("user_game_status")
-      .select("play_status")
-      .eq("user_id", user.id)
-      .eq("igdb_id", id)
-      .maybeSingle();
-    playStatus = status?.play_status ?? null;
   }
 
   return (
@@ -81,7 +72,6 @@ export default async function GamePage({ params }: Props) {
       isAuthed={!!user}
       emailVerified={!!user?.email_confirmed_at}
       listMembership={listMembership}
-      playStatus={playStatus}
       platforms={platforms}
     />
   );

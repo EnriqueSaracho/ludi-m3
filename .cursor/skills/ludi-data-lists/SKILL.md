@@ -62,26 +62,21 @@ Related skills: [ludi-pages-profile](../ludi-pages-profile/SKILL.md), [ludi-page
 
 ## Play status (game page)
 
-Single **primary status** per user per game (mutually exclusive for system sync):
+**Independent per-status membership** — a game can be in any combination of the three status lists at once (e.g. `games_played` **and** `want_to_play`, for a replay). Each status is just a `list_items` row like any other list; there is no cross-list exclusivity:
 
-| UI label | `play_status` enum | System list action |
+| UI label | `play_status` value (label mapping only) | System list action |
 |----------|-------------------|-------------------|
-| Want to play | `want` | add to `want_to_play`, remove from other status lists |
-| Playing | `playing` | add to `currently_playing`, remove from others |
-| Played | `played` | add to `games_played`, remove from others |
-| None | `null` | remove from all three status lists (not from custom lists or `games_rated`) |
+| Want to play | `want` | toggles membership in `want_to_play` only |
+| Playing | `playing` | toggles membership in `currently_playing` only |
+| Played | `played` | toggles membership in `games_played` only |
+
+UI: game page hero renders the three as independent toggle buttons (`STATUS_OPTIONS` in `GamePageClient.tsx`), each checked/unchecked directly — same underlying `addToList`/`removeListItem` Server Actions used by `AddToListMenu`, which now treats status lists exactly like custom lists (no special-casing, direct uncheck allowed).
+
+`user_game_status` (single row per `(user_id, igdb_id)`, singular `play_status` column) can no longer represent "current status" once multiple can be true — it is **not written to by the current UI** and is not read for status display. The table and its columns are left in place (untouched schema) rather than dropped.
 
 ### Platform / console
 
-When status is set, user may optionally select **platform played on**:
-
-- Dropdown: IGDB `platforms` for that game (from cached game metadata) + “Other” optional.
-- Store `platform_id` (IGDB platform id) + `platform_name` snapshot on `user_game_status`.
-- **Not required** — status can be set without platform. When platform is omitted on update, existing platform values are preserved.
-
-Changing platform updates row without changing status.
-
-**UI placement:** game page hero — control group “Your status” beside Add to list.
+**UI removed (2026-08-18)** — the platform dropdown was confusing (unclear whether it meant played-on, want-to-play-on, or currently-playing-on). `GamePageClient.tsx` gates the `<Select>` behind `PLATFORM_SELECTOR_ENABLED = false`; the component, its state, and the `platforms` prop are still wired, just not rendered. DB columns (`list_items.platform_id/platform_name`, `user_game_status.platform_id/platform_name`) and `addToSystemList`'s optional `platform` param are unchanged, so re-enabling is a one-line flip plus reconnecting a setter — no data-layer work needed.
 
 ---
 
@@ -110,16 +105,16 @@ Server Actions return a friendly error when exceeded, e.g. “This list is full 
 
 | List type | `list_items` | `user_game_status` | `game_ratings` | Confirm UI |
 |-----------|--------------|-------------------|----------------|------------|
-| `currently_playing`, `want_to_play`, `games_played` | delete | clear `play_status` + platform if status matched list | — | list page only ([ludi-pages-list](../ludi-pages-list/SKILL.md)) |
+| `currently_playing`, `want_to_play`, `games_played` | delete | no change (unused, see above) | — | list page only ([ludi-pages-list](../ludi-pages-list/SKILL.md)) |
 | `games_rated` | delete | no change | **keep** rating | none v1 |
 | Custom | delete | no change | — | none v1 |
 
 ### AddToListMenu ([ludi-components-game-card](../ludi-components-game-card/SKILL.md))
 
 - **Custom lists:** check = add, uncheck = instant remove (no confirm).
-- **Status lists:** check = `addToList` → delegates to `setPlayStatus` (syncs `user_game_status` + one status list); **do not allow uncheck** when checked — user changes via hero **None** / status select, **Remove from all lists**, or list page **Remove** with confirm.
+- **Status lists:** check = `addToList`, uncheck = `removeListItem` — behaves exactly like a custom list, fully independent of the other two status lists.
 - **games_rated:** read-only when rated; remove via list page if needed.
-- **Unsave:** menu item **Remove from all lists** when on any custom or status list — clears custom + status `list_items` and `user_game_status`; **keeps** `games_rated` + `game_ratings`.
+- **Unsave:** menu item **Remove from all lists** when on any custom or status list — clears custom + status `list_items` and the (unused) `user_game_status` row; **keeps** `games_rated` + `game_ratings`.
 
 Confirm dialog is **not** used in AddToListMenu.
 
@@ -198,25 +193,20 @@ On upsert → ensure `list_items` row in `games_rated` system list.
 ## Sync logic (application)
 
 ```
-setPlayStatus(user, igdbId, status, platform):
-  upsert user_game_status
-  remove igdbId from all system status lists (want/playing/played)
-  if status: add to corresponding system list (append sort_order max+1)
-
 addToList(user, listId, igdbId):
-  if status system list: applyPlayStatus (LIST_TO_PLAY_STATUS) — no direct list_items insert
-  else if count(list_items for listId) >= MAX_LIST_ITEMS: error
+  # status lists (want_to_play / currently_playing / games_played) are not
+  # special-cased — same path as custom lists, so a game can be in any
+  # combination of them simultaneously
+  if count(list_items for listId) >= MAX_LIST_ITEMS: error
   else insert list_items on conflict do nothing
 
 unsaveGame(user, igdbId):
   delete list_items from custom + status lists (not games_rated)
-  delete user_game_status row
+  delete user_game_status row (legacy cleanup only, see Play status above)
 
 removeListItem(user, listId, igdbId):
   delete list_items where list_id and igdb_id
-  if list.system_key in (currently_playing, want_to_play, games_played):
-    if user_game_status.play_status matches that list:
-      set play_status null, platform_id null, platform_name null
+  # no cross-list side effects
 
 rateGame(user, igdbId, score):
   upsert game_ratings
@@ -256,15 +246,14 @@ getListPreview(listId, limit = 6):
 ## Regression checks
 
 - [ ] Signup creates profile with **derived username** (collisions allowed v1) + 4 system lists.
-- [ ] Play status syncs exactly one status list.
-- [ ] Platform stored with status.
+- [ ] A game can hold any combination of the three status lists at once (e.g. played + want to play, for a replay).
 - [ ] Rating adds to games_rated.
 - [ ] `isSaved` true if on any list.
 - [ ] Custom lists CRUD works; custom lists renamable; system lists not renamable.
 - [ ] sort_order reorder persists.
 - [ ] `MAX_LIST_ITEMS` and `MAX_CUSTOM_LISTS` enforced with friendly errors.
-- [ ] `removeListItem` clears `user_game_status` for status lists when matched.
 - [ ] `games_rated` remove does not delete `game_ratings`.
+- [ ] Platform selector stays hidden (`PLATFORM_SELECTOR_ENABLED = false` in `GamePageClient.tsx`).
 
 ---
 
@@ -274,10 +263,10 @@ getListPreview(listId, limit = 6):
 |-------|----------|
 | Rename | Custom only; system lists fixed |
 | Max size | 10_000 items/list; 100 custom lists/user |
-| Status list remove | Clears `play_status` + platform when matched |
 | Confirm dialog | List page only for status lists |
-| AddToListMenu | No uncheck on status lists v1 |
-| Multi status lists | No — one status-driven list per game |
+| AddToListMenu | Direct uncheck allowed on status lists (2026-08-18) |
+| Multi status lists | **Yes** (2026-08-18) — independent per-status membership, no exclusivity |
+| Platform selector | Hidden in UI (2026-08-18); DB columns + Server Action params kept dormant |
 
 ---
 

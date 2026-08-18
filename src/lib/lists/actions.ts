@@ -3,22 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
-  LIST_TO_PLAY_STATUS,
   MAX_CUSTOM_LISTS,
   MAX_LIST_ITEMS,
-  PLAY_STATUS_TO_LIST,
   isPlayStatusListKey,
-  type PlayStatus,
 } from "@/lib/game/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
 import {
   addToSystemList,
   countListItems,
   getNextSortOrder,
-  getSystemListId,
-  removeFromStatusLists,
-  syncPlayStatusLists,
 } from "@/lib/lists/sync";
 
 async function requireUser() {
@@ -39,63 +31,6 @@ async function requireVerified() {
   return { supabase, user };
 }
 
-type ListSupabase = SupabaseClient<Database>;
-
-async function applyPlayStatus(
-  supabase: ListSupabase,
-  userId: string,
-  igdbId: number,
-  status: PlayStatus | null,
-  platform?: { platform_id?: number; platform_name?: string },
-) {
-  let platformId: number | null = null;
-  let platformName: string | null = null;
-
-  if (status === null) {
-    platformId = null;
-    platformName = null;
-  } else if (platform !== undefined) {
-    platformId = platform.platform_id ?? null;
-    platformName = platform.platform_name ?? null;
-  } else {
-    const { data: existing } = await supabase
-      .from("user_game_status")
-      .select("platform_id, platform_name")
-      .eq("user_id", userId)
-      .eq("igdb_id", igdbId)
-      .maybeSingle();
-    platformId = existing?.platform_id ?? null;
-    platformName = existing?.platform_name ?? null;
-  }
-
-  await supabase.from("user_game_status").upsert({
-    user_id: userId,
-    igdb_id: igdbId,
-    play_status: status,
-    platform_id: platformId,
-    platform_name: platformName,
-    updated_at: new Date().toISOString(),
-  });
-
-  const syncPlatform =
-    status === null
-      ? undefined
-      : { platform_id: platformId ?? undefined, platform_name: platformName ?? undefined };
-
-  await syncPlayStatusLists(supabase, userId, igdbId, status, syncPlatform);
-}
-
-export async function setPlayStatus(
-  igdbId: number,
-  status: PlayStatus | null,
-  platform?: { platform_id?: number; platform_name?: string },
-) {
-  const { supabase, user } = await requireUser();
-  await applyPlayStatus(supabase, user.id, igdbId, status, platform);
-  revalidatePath(`/game/${igdbId}`);
-  revalidatePath("/profile");
-}
-
 export async function addToList(listId: string, igdbId: number) {
   const { supabase, user } = await requireUser();
 
@@ -106,14 +41,6 @@ export async function addToList(listId: string, igdbId: number) {
     .single();
 
   if (!list || list.user_id !== user.id) throw new Error("List not found");
-
-  if (isPlayStatusListKey(list.system_key)) {
-    const playStatus = LIST_TO_PLAY_STATUS[list.system_key];
-    await applyPlayStatus(supabase, user.id, igdbId, playStatus);
-    revalidatePath(`/game/${igdbId}`);
-    revalidatePath("/profile");
-    return;
-  }
 
   const count = await countListItems(supabase, listId);
   if (count >= MAX_LIST_ITEMS) {
@@ -166,46 +93,13 @@ export async function unsaveGame(igdbId: number) {
 }
 
 export async function removeListItem(listId: string, igdbId: number) {
-  const { supabase, user } = await requireUser();
-
-  const { data: list } = await supabase
-    .from("user_lists")
-    .select("system_key")
-    .eq("id", listId)
-    .eq("user_id", user.id)
-    .single();
+  const { supabase } = await requireUser();
 
   await supabase
     .from("list_items")
     .delete()
     .eq("list_id", listId)
     .eq("igdb_id", igdbId);
-
-  if (isPlayStatusListKey(list?.system_key)) {
-    const { data: status } = await supabase
-      .from("user_game_status")
-      .select("play_status")
-      .eq("user_id", user.id)
-      .eq("igdb_id", igdbId)
-      .maybeSingle();
-
-    const expected = list.system_key;
-    const statusKey =
-      status?.play_status && PLAY_STATUS_TO_LIST[status.play_status];
-
-    if (statusKey === expected) {
-      await supabase
-        .from("user_game_status")
-        .update({
-          play_status: null,
-          platform_id: null,
-          platform_name: null,
-        })
-        .eq("user_id", user.id)
-        .eq("igdb_id", igdbId);
-      await removeFromStatusLists(supabase, user.id, igdbId);
-    }
-  }
 
   revalidatePath(`/game/${igdbId}`);
   revalidatePath(`/list/${listId}`);

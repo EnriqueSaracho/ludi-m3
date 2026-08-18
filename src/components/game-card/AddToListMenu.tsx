@@ -13,11 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/loading/Spinner";
-import {
-  LIST_TO_PLAY_STATUS,
-  STATUS_LIST_KEYS,
-  type PlayStatus,
-} from "@/lib/game/types";
 
 type ListRow = {
   id: string;
@@ -33,19 +28,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onListsChange?: (lists: ListRow[]) => void;
-  onPlayStatusChange?: (status: PlayStatus | null) => void;
 };
-
-function isStatusListKey(
-  key: string | null,
-): key is (typeof STATUS_LIST_KEYS)[number] {
-  return !!key && STATUS_LIST_KEYS.includes(key as (typeof STATUS_LIST_KEYS)[number]);
-}
-
-function playStatusForListKey(key: string | null): PlayStatus | null {
-  if (!isStatusListKey(key)) return null;
-  return LIST_TO_PLAY_STATUS[key];
-}
 
 export function AddToListMenu({
   igdbId,
@@ -53,7 +36,6 @@ export function AddToListMenu({
   open,
   onOpenChange,
   onListsChange,
-  onPlayStatusChange,
 }: Props) {
   const router = useRouter();
   const [lists, setLists] = useState(listsProp);
@@ -78,32 +60,16 @@ export function AddToListMenu({
     (l) => l.checked && l.system_key !== "games_rated",
   );
 
-  function optimisticCheck(list: ListRow, checked: boolean): ListRow[] {
-    if (checked && isStatusListKey(list.system_key)) {
-      return lists.map((l) => {
-        if (l.id === list.id) return { ...l, checked: true };
-        if (isStatusListKey(l.system_key)) return { ...l, checked: false };
-        return l;
-      });
-    }
-    return lists.map((l) => (l.id === list.id ? { ...l, checked } : l));
-  }
-
   async function toggle(list: ListRow, checked: boolean) {
-    if (isStatusListKey(list.system_key) && list.checked) {
-      return;
-    }
     if (list.system_key === "games_rated" && list.checked) return;
 
     const previous = lists;
-    const optimistic = optimisticCheck(list, checked);
+    const optimistic = lists.map((l) =>
+      l.id === list.id ? { ...l, checked } : l,
+    );
     updateLists(optimistic);
     setPendingIds((prev) => new Set(prev).add(list.id));
     setError(null);
-
-    if (checked && isStatusListKey(list.system_key)) {
-      onPlayStatusChange?.(playStatusForListKey(list.system_key));
-    }
 
     try {
       if (checked) {
@@ -111,17 +77,8 @@ export function AddToListMenu({
       } else {
         await removeListItem(list.id, igdbId);
       }
-      if (checked && isStatusListKey(list.system_key)) {
-        router.refresh();
-      }
     } catch (err) {
       updateLists(previous);
-      if (checked && isStatusListKey(list.system_key)) {
-        const prevStatus = lists.find(
-          (l) => isStatusListKey(l.system_key) && l.checked,
-        );
-        onPlayStatusChange?.(playStatusForListKey(prevStatus?.system_key ?? null));
-      }
       setError(err instanceof Error ? err.message : "Failed to update list");
     } finally {
       setPendingIds((prev) => {
@@ -138,7 +95,6 @@ export function AddToListMenu({
       l.system_key === "games_rated" ? l : { ...l, checked: false },
     );
     updateLists(optimistic);
-    onPlayStatusChange?.(null);
     setUnsavePending(true);
     setError(null);
 
@@ -147,10 +103,6 @@ export function AddToListMenu({
       router.refresh();
     } catch (err) {
       updateLists(previous);
-      const prevStatus = previous.find(
-        (l) => isStatusListKey(l.system_key) && l.checked,
-      );
-      onPlayStatusChange?.(playStatusForListKey(prevStatus?.system_key ?? null));
       setError(err instanceof Error ? err.message : "Failed to unsave");
     } finally {
       setUnsavePending(false);
@@ -194,7 +146,6 @@ export function AddToListMenu({
             disabled={
               pendingIds.has(list.id) ||
               unsavePending ||
-              (isStatusListKey(list.system_key) && list.checked) ||
               (list.system_key === "games_rated" && list.checked)
             }
             onCheckedChange={(v) => toggle(list, !!v)}

@@ -54,9 +54,3 @@ export const PLAY_STATUS_TO_LIST: Record<
   played: "games_played",
   want: "want_to_play",
 };
-
-export const LIST_TO_PLAY_STATUS: Record<PlayStatusListKey, PlayStatus> = {
-  currently_playing: "playing",
-  want_to_play: "want",
-  games_played: "played",
-};
