@@ -60,10 +60,10 @@ Each block:
 
 | Part | Spec |
 |------|------|
-| Title | list name + count badge `(12)` |
+| Title | list name |
 | Preview | horizontal row, **max 6** GameCards |
-| Empty | “No games yet” + hint (e.g. “Mark a game as Playing from its page”) |
-| CTA | **“See more”** → `/list/[listId]` |
+| Empty | “No games yet” + hint (e.g. “Mark a game as Playing from its page”), itself linking to `/list/[listId]` |
+| CTA | `SeeAllCard` — cover-sized tail card at the end of the row (`+N`, total count) → `/list/[listId]`. Replaces the old header text link, which read as the list ending at the last cover. |
 
 #### Custom lists (below system)
 
@@ -99,7 +99,7 @@ Server load:
 
 - `profiles` row for user
 - all `user_lists` ordered: system keys order, then custom `created_at`
-- per list: `getListPreview(id, 6)` + total count
+- per list: `getListPreview(id, 6)` + `getListCount(id)` (feeds the tail card's `+N`)
 
 ---
 
@@ -116,7 +116,7 @@ Server load:
 - [ ] Username edit saves (format validation only v1; uniqueness → v1.1).
 - [ ] Four system list sections always visible.
 - [ ] Custom lists appear below system lists.
-- [ ] Each section shows ≤6 cards + See more → list page.
+- [ ] Each section shows ≤6 cards + See all tail card → list page.
 - [ ] New list creates custom list and appears in section.
 - [ ] Guests cannot access `/profile`.
 - [ ] System list titles are read-only everywhere.

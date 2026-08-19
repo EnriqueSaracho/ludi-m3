@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getListPreview } from "@/lib/lists/queries";
+import { getListCount, getListPreview } from "@/lib/lists/queries";
 import { getFeatured, getNewReleases, getTopRated } from "@/lib/home/discovery";
 import { GameCard } from "@/components/game-card/GameCard";
 import { GameRow } from "@/components/game-card/GameRow";
@@ -29,6 +29,8 @@ export default async function HomePage() {
   let wantCards: Awaited<ReturnType<typeof getListPreview>> = [];
   let playingListId: string | null = null;
   let wantListId: string | null = null;
+  let playingTotal = 0;
+  let wantTotal = 0;
 
   if (user) {
     const { data: lists } = await supabase
@@ -40,11 +42,17 @@ export default async function HomePage() {
     const want = lists?.find((l) => l.system_key === "want_to_play");
     if (playing) {
       playingListId = playing.id;
-      playingCards = await getListPreview(playing.id, 10);
+      [playingCards, playingTotal] = await Promise.all([
+        getListPreview(playing.id, 10),
+        getListCount(playing.id),
+      ]);
     }
     if (want) {
       wantListId = want.id;
-      wantCards = await getListPreview(want.id, 10);
+      [wantCards, wantTotal] = await Promise.all([
+        getListPreview(want.id, 10),
+        getListCount(want.id),
+      ]);
     }
   }
 
@@ -71,20 +79,36 @@ export default async function HomePage() {
         <section className="shell space-y-14 pb-20">
           {playingCards.length > 0 && (
             <Reveal>
-              <SectionHead
-                title="Continue playing"
-                href={playingListId ? `/list/${playingListId}` : undefined}
+              <SectionHead title="Continue playing" />
+              <GameRow
+                games={playingCards}
+                seeAll={
+                  playingListId
+                    ? {
+                        href: `/list/${playingListId}`,
+                        total: playingTotal,
+                        listName: "Currently playing",
+                      }
+                    : undefined
+                }
               />
-              <GameRow games={playingCards} />
             </Reveal>
           )}
           {wantCards.length > 0 && (
             <Reveal>
-              <SectionHead
-                title="Want to play"
-                href={wantListId ? `/list/${wantListId}` : undefined}
+              <SectionHead title="Want to play" />
+              <GameRow
+                games={wantCards}
+                seeAll={
+                  wantListId
+                    ? {
+                        href: `/list/${wantListId}`,
+                        total: wantTotal,
+                        listName: "Want to play",
+                      }
+                    : undefined
+                }
               />
-              <GameRow games={wantCards} />
             </Reveal>
           )}
         </section>
@@ -144,18 +168,11 @@ export default async function HomePage() {
   );
 }
 
-function SectionHead({ title, href }: { title: string; href?: string }) {
+/* Rows carry their own "see all" tail card, so the head is title-only. */
+function SectionHead({ title }: { title: string }) {
   return (
     <div className="mb-5 flex items-baseline justify-between gap-4">
       <h2 className="text-xl font-light tracking-tight">{title}</h2>
-      {href && (
-        <Link
-          href={href}
-          className="text-[0.8125rem] text-muted-foreground transition-colors hover:text-brand-tint"
-        >
-          See all
-        </Link>
-      )}
     </div>
   );
 }

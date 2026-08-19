@@ -3,16 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { GameCard } from "@/components/game-card/GameCard";
+import { SeeAllCard } from "@/components/game-card/SeeAllCard";
 import type { GameCardPayload } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
+
+type SeeAll = {
+  href: string;
+  /** Games on the whole list — `games` is only the previewed slice. */
+  total: number;
+  listName?: string;
+};
 
 /** Horizontally scrolling shelf of covers with arrows that appear only when
  *  there is actually somewhere to scroll. */
 export function GameRow({
   games,
+  seeAll,
   className,
 }: {
   games: GameCardPayload[];
+  /** Appends a tail card linking to the full list. */
+  seeAll?: SeeAll;
   className?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -37,7 +48,7 @@ export function GameRow({
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [games.length]);
+  }, [games.length, seeAll?.href]);
 
   function scrollBy(direction: 1 | -1) {
     const el = trackRef.current;
@@ -54,6 +65,14 @@ export function GameRow({
         {games.map((g) => (
           <GameCard key={g.igdbId} game={g} size="sm" showSave={false} />
         ))}
+        {seeAll && games.length > 0 && (
+          <SeeAllCard
+            href={seeAll.href}
+            total={seeAll.total}
+            shown={games.length}
+            listName={seeAll.listName}
+          />
+        )}
       </div>
 
       {!atStart && (

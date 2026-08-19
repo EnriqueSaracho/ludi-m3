@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getListPreview } from "@/lib/lists/queries";
+import { getListCount, getListPreview } from "@/lib/lists/queries";
 import { GameRow } from "@/components/game-card/GameRow";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
 import { NewListDialog } from "@/components/profile/NewListDialog";
@@ -44,10 +44,13 @@ export default async function ProfilePage() {
     lists?.filter((l) => !l.is_system).sort((a, b) => a.name.localeCompare(b.name)) ?? [];
 
   const previews = await Promise.all(
-    [...systemLists, ...customLists].map(async (list) => ({
-      list,
-      cards: await getListPreview(list.id, 6),
-    })),
+    [...systemLists, ...customLists].map(async (list) => {
+      const [cards, total] = await Promise.all([
+        getListPreview(list.id, 6),
+        getListCount(list.id),
+      ]);
+      return { list, cards, total };
+    }),
   );
 
   return (
@@ -64,23 +67,29 @@ export default async function ProfilePage() {
           <NewListDialog />
         </div>
 
-        {previews.map(({ list, cards }) => (
+        {previews.map(({ list, cards, total }) => (
           <div key={list.id}>
             <div className="mb-4 flex items-baseline justify-between gap-4">
               <h3 className="text-base text-foreground">{list.name}</h3>
-              <Link
-                href={`/list/${list.id}`}
-                className="text-[0.8125rem] text-muted-foreground transition-colors hover:text-brand-tint"
-              >
-                See all
-              </Link>
             </div>
             {cards.length === 0 ? (
-              <p className="rounded-md border border-dashed border-hairline px-4 py-8 text-center text-sm text-muted-foreground">
+              /* The row's tail card is the way into a list, so an empty list
+                 needs the placeholder itself to be the link. */
+              <Link
+                href={`/list/${list.id}`}
+                className="block rounded-md border border-dashed border-hairline px-4 py-8 text-center text-sm text-muted-foreground transition-colors hover:border-hairline-strong hover:text-brand-tint"
+              >
                 No games yet.
-              </p>
+              </Link>
             ) : (
-              <GameRow games={cards} />
+              <GameRow
+                games={cards}
+                seeAll={{
+                  href: `/list/${list.id}`,
+                  total,
+                  listName: list.name,
+                }}
+              />
             )}
           </div>
         ))}

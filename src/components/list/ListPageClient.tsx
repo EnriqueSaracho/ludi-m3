@@ -18,7 +18,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X } from "lucide-react";
+import { ArrowLeft, GripVertical, X } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { GameCard } from "@/components/game-card/GameCard";
 import type { GameCardPayload } from "@/lib/game/types";
@@ -202,6 +203,21 @@ export function ListPageClient({ list, initialCards, initialItems }: Props) {
 
   return (
     <div className="shell space-y-6 py-10">
+      {/* Lands on the lists section rather than the top of the profile, so the
+          trip back puts the row this list came from under the cursor. */}
+      <Link
+        href="/profile#lists"
+        className="group/back -mb-1 inline-flex w-fit items-center gap-2.5 text-[0.8125rem] text-muted-foreground transition-colors hover:text-brand-tint"
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-hairline text-copy transition-colors duration-300 group-hover/back:border-brand group-hover/back:bg-brand group-hover/back:text-white">
+          <ArrowLeft
+            className="h-3.5 w-3.5 transition-transform duration-300 group-hover/back:-translate-x-[2px]"
+            strokeWidth={1.5}
+          />
+        </span>
+        My lists
+      </Link>
+
       <div className="flex flex-wrap items-center gap-3">
         {list.is_system ? (
           <h1 className="text-3xl font-light tracking-tight">{list.name}</h1>
