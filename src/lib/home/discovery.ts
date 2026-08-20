@@ -3,6 +3,7 @@ import { igdbFetch } from "@/lib/igdb/client";
 import gameTypeIds from "@/lib/igdb/game-type-ids.json";
 import { toGameCardPayload, type IgdbGameRow } from "@/lib/game/normalize";
 import { CARD_PAYLOAD_VERSION, type GameCardPayload } from "@/lib/game/types";
+import { pickBackdropImageId, type IgdbArtwork, type IgdbScreenshot } from "@/lib/game/media";
 
 const FIELDS = `id, name, slug, cover.image_id, first_release_date, game_type.type,
   rating, aggregated_rating, rating_count, aggregated_rating_count`;
@@ -32,14 +33,14 @@ export type FeaturedGame = {
   igdbId: number;
   name: string;
   summary: string | null;
-  /** Wide art for the hero — artwork if the game has one, else a screenshot. */
+  /** Wide art for the hero — best key art, else best artwork, else a screenshot. */
   backdropImageId: string | null;
 };
 
 type FeaturedRow = IgdbGameRow & {
   summary?: string | null;
-  artworks?: Array<{ image_id?: string }> | null;
-  screenshots?: Array<{ image_id?: string }> | null;
+  artworks?: IgdbArtwork[] | null;
+  screenshots?: IgdbScreenshot[] | null;
 };
 
 /** Highly-rated recent games that have wide art, for the home hero carousel. */
@@ -52,7 +53,7 @@ export async function getFeatured(): Promise<FeaturedGame[]> {
       const rows = await igdbFetch<FeaturedRow[]>(
         "games",
         `fields id, name, slug, summary, cover.image_id, artworks.image_id,
-  screenshots.image_id, first_release_date, game_type.type,
+  artworks.artwork_type, screenshots.image_id, first_release_date, game_type.type,
   rating, aggregated_rating, rating_count, aggregated_rating_count;
 where first_release_date >= ${twoYearsAgo} & first_release_date <= ${now}
   & game_type = (${mainIds.join(",")}) & version_parent = null
@@ -65,8 +66,7 @@ limit 5;`,
         igdbId: row.id,
         name: row.name,
         summary: row.summary ?? null,
-        backdropImageId:
-          row.artworks?.[0]?.image_id ?? row.screenshots?.[0]?.image_id ?? null,
+        backdropImageId: pickBackdropImageId(row.artworks ?? undefined, row.screenshots ?? undefined),
       }));
     },
     ["home-featured", CARD_PAYLOAD_VERSION],

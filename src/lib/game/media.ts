@@ -77,6 +77,21 @@ function rankArtworks(artworks: IgdbArtwork[] | undefined) {
     );
 }
 
+/** Best key art, else best artwork, else the first screenshot. Shared by the
+ *  game page hero and the home page carousel so both rank backdrops the same
+ *  way. */
+export function pickBackdropImageId(
+  artworks: IgdbArtwork[] | undefined,
+  screenshots: IgdbScreenshot[] | undefined,
+): string | null {
+  const ranked = rankArtworks(artworks);
+  const screenshotIds = (screenshots ?? [])
+    .map((s) => s.image_id)
+    .filter((id): id is string => !!id);
+
+  return ranked[0]?.image_id ?? screenshotIds[0] ?? null;
+}
+
 export function buildGameMedia(game: {
   videos?: IgdbVideo[];
   screenshots?: IgdbScreenshot[];
@@ -87,7 +102,7 @@ export function buildGameMedia(game: {
     .map((s) => s.image_id)
     .filter((id): id is string => !!id);
 
-  const backdropImageId = artworks[0]?.image_id ?? screenshotIds[0] ?? null;
+  const backdropImageId = pickBackdropImageId(game.artworks, game.screenshots);
 
   // Trailers lead the rail; IGDB's order holds within each group.
   const videos = (game.videos ?? [])
