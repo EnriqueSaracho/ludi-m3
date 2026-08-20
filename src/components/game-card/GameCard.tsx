@@ -45,7 +45,8 @@ export function GameCard({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const coverUrl = igdbImageUrl(game.coverImageId, "cover_big");
+  // `cover_big` is only 264px wide — under what a 150px card needs at DPR 3.
+  const coverUrl = igdbImageUrl(game.coverImageId, "cover_big_2x");
   const link = href ?? `/game/${game.igdbId}`;
   const year = game.releaseYear ?? "TBD";
 

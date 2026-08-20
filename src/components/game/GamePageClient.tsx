@@ -109,11 +109,12 @@ export function GamePageClient({
   const [ratePending, startRateTransition] = useTransition();
   const [commentPending, startCommentTransition] = useTransition();
 
-  const coverUrl = igdbImageUrl(game.cover?.image_id, "cover_big");
+  // Renders at 216px, so the 264px-wide `cover_big` falls short above DPR 1.
+  const coverUrl = igdbImageUrl(game.cover?.image_id, "cover_big_2x");
   /* One pass ranks the artwork; the best of it becomes the backdrop and the
      rest falls into the rail behind the trailers and screenshots. */
   const media = buildGameMedia(game);
-  const backdropUrl = igdbImageUrl(media.backdropImageId, "1080p");
+  const backdropUrl = igdbImageUrl(media.backdropImageId, "1080p_2x");
   const savedCount = lists.filter((l) => l.checked).length;
   const isSaved = savedCount > 0;
   const releaseYear = game.first_release_date
@@ -201,8 +202,14 @@ export function GamePageClient({
             src={backdropUrl}
             alt=""
             fill
-            priority
-            sizes="100vw"
+            /* Unambiguously the LCP here — one full-bleed image, no carousel.
+               `preload` replaces the deprecated `priority` in Next 16. */
+            preload
+            quality={60}
+            /* Inflated on mobile for the same reason as the home hero — see the
+               note in HomeHero.tsx. This box is taller (80vh), so the crop is
+               slightly harsher still. */
+            sizes="(max-width: 768px) 300vw, 100vw"
             className="-z-10 object-cover object-center"
           />
         )}

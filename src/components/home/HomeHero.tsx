@@ -30,7 +30,7 @@ export function HomeHero({ games }: { games: FeaturedGame[] }) {
   if (games.length === 0) return null;
 
   const game = games[index];
-  const backdrop = igdbImageUrl(game.backdropImageId, "1080p");
+  const backdrop = igdbImageUrl(game.backdropImageId, "1080p_2x");
 
   return (
     <section
@@ -62,8 +62,23 @@ export function HomeHero({ games }: { games: FeaturedGame[] }) {
               src={backdrop}
               alt=""
               fill
-              priority
-              sizes="100vw"
+              /* Only slide 0 is the LCP. One slide is mounted at a time, so the
+                 old blanket `priority` was right at first paint but wrong after
+                 it: every advance mounted a fresh image that re-claimed the
+                 hint, pushing a preload for art that no longer gates anything.
+                 Later slides still appear without delay — each mounts already
+                 in the viewport, so it loads eagerly regardless.
+                 (`preload` replaces the deprecated `priority` in Next 16.) */
+              preload={index === 0}
+              quality={60}
+              /* Not a typo. `sizes` describes the *layout* width, but on a
+                 portrait phone `object-cover` scales landscape art to match the
+                 box height, so it renders ~3x wider than the viewport and all
+                 but a ~21-36% vertical slice is cropped away. At 100vw the
+                 browser fetched a 1200px file for a slice needing ~3300px and
+                 upscaled it — the source of the mobile blur. Desktop is left at
+                 100vw: a short, wide box is width-driven, so it crops little. */
+              sizes="(max-width: 768px) 300vw, 100vw"
               className="object-cover object-center"
             />
           )}

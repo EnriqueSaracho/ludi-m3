@@ -16,9 +16,9 @@ export function CoverGrid({ games }: { games: GameCardPayload[] }) {
             title={game.name}
           >
             <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-sunken ring-1 ring-white/5 transition-all duration-300 group-hover:-translate-y-1.5 group-hover:ring-brand group-hover:shadow-[0_20px_45px_-20px_rgb(0_0_0/0.95),0_0_0_1px_var(--accent)]">
-              {igdbImageUrl(game.coverImageId, "cover_big") ? (
+              {igdbImageUrl(game.coverImageId, "cover_big_2x") ? (
                 <Image
-                  src={igdbImageUrl(game.coverImageId, "cover_big")!}
+                  src={igdbImageUrl(game.coverImageId, "cover_big_2x")!}
                   alt={game.name}
                   fill
                   sizes="(max-width: 640px) 30vw, (max-width: 768px) 22vw, 15vw"

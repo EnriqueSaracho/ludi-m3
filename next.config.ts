@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
     root: import.meta.dirname,
   },
   images: {
+    /* Next 16 narrowed the default to `[75]` and rejects anything unlisted, so
+       every quality used anywhere has to be declared here. 60 is for the two
+       hero backdrops: they sit under a scrim with type over them, where the
+       detail a higher quality buys is never visible, and at 3840px wide the
+       byte difference is worth more than the fidelity. */
+    qualities: [60, 75],
     remotePatterns: [
       {
         protocol: "https",
