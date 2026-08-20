@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { GameCard } from "@/components/game-card/GameCard";
 import { SeeAllCard } from "@/components/game-card/SeeAllCard";
@@ -19,11 +19,14 @@ type SeeAll = {
 export function GameRow({
   games,
   seeAll,
+  leading,
   className,
 }: {
   games: GameCardPayload[];
   /** Appends a tail card linking to the full list. */
   seeAll?: SeeAll;
+  /** Card pinned ahead of the covers — see the Nexus tile on the mods row. */
+  leading?: ReactNode;
   className?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -62,6 +65,7 @@ export function GameRow({
         ref={trackRef}
         className="scroll-hidden flex gap-4 overflow-x-auto scroll-smooth pb-2"
       >
+        {leading}
         {games.map((g) => (
           <GameCard key={g.igdbId} game={g} size="sm" showSave={false} />
         ))}

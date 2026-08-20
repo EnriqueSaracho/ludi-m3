@@ -308,41 +308,51 @@ Guests see averages; cannot submit.
 
 ## 5. Related content (`#related`)
 
-Horizontal **GameCard** rows per subsection ([ludi-components-game-card](../ludi-components-game-card/SKILL.md)).
+Horizontal **GameCard** rows per subsection ([ludi-components-game-card](../ludi-components-game-card/SKILL.md)), rendered in the fixed order below (`RELATED_SECTIONS` in `GamePageClient.tsx`, mirroring `RELATED_ORDER` in `load-game-page.ts`). Every row hides when empty **except Mods**.
 
-| Subsection | IGDB field | Hide if empty |
-|------------|------------|---------------|
-| Expansions | expansions, standalone_expansions | yes |
-| DLCs | dlcs | yes |
-| Updates | category/update games if exposed | yes |
-| Bundles | bundles | yes |
-| Editions | version children or bundles | yes |
-| Ports | ports | yes |
-| Remakes / Remasters | remakes, remasters | yes |
-| Expanded / Forks | expanded_games, forks | yes |
-| Mods | `mods` | carousel: yes; section always shown (see below) |
+| # | Subsection | Bucket | Source |
+|---|------------|--------|--------|
+| 1 | **Main game** | `parent` | `parent_game`, `version_parent` |
+| 2 | Editions | `editions` | version children (reverse) |
+| 3 | Expansions | `expansions` | `expansions` + `standalone_expansions` + Expansion/Standalone children |
+| 4 | DLC | `dlcs` | `dlcs` + DLC children |
+| 5 | Packs & add-ons | `packs` | Pack/Addon children (reverse) |
+| 6 | Episodes | `episodes` | Episode children (reverse) |
+| 7 | Seasons | `seasons` | Season children (reverse) |
+| 8 | Updates | `updates` | Update children (reverse) |
+| 9 | Bundles | `bundles` | `bundles` |
+| 10 | Ports | `ports` | `ports` |
+| 11 | Remakes | `remakes` | `remakes` |
+| 12 | Remasters | `remasters` | `remasters` |
+| 13 | Expanded games | `expanded` | `expanded_games` |
+| 14 | Forks | `forks` | `forks` |
+| 15 | Mods | `mods` | Mod children (reverse) + Nexus tile |
+| 16 | Similar games | `similar` | `similar_games` |
 
-**Mods carousel (v1):** Horizontal **GameCard** row from `related.mods` (batched payload from [ludi-data-game](../ludi-data-game/SKILL.md)), same pattern as DLCs / Expansions. Omit carousel when `mods` is empty — do not render an empty row.
+**Ordering rationale:** the main game leads so a DLC / port / edition page can navigate **back** to its parent. Similar games trail everything — they are the only bucket that is not the same game.
 
-**Mods section visibility:** Always render the Mods subsection (`h3` “Mods”) on the game page. When IGDB `mods` has IDs → carousel + Nexus link. When empty → section title + Nexus link only (no placeholder card).
+**Main game row:** only renders when the current game is itself related content. Carries the `parent_game` card, plus the `version_parent` card when they differ.
 
-**Nexus outbound link (v1, static — not a data source):**
+**Mods row:** always rendered. `GameRow` takes a `leading` node — an `ExternalLinkCard` pointing at Nexus, in the same cover slot as the covers — followed by IGDB's mod children. No separate text link, no placeholder card when `related.mods` is empty.
+
+**Nexus outbound link (static — not a data source):**
 
 | Field | Value |
 |-------|--------|
-| Label | “Find mods on Nexus Mods” (or equivalent) |
+| Card | `ExternalLinkCard` — title “Nexus Mods”, subtitle “Search mods” |
 | URL | `https://www.nexusmods.com/search/?BH%5Bsearch%5D={encodeURIComponent(name)}` where `name` is the current game display title |
 | Link attrs | `target="_blank"`, `rel="noopener noreferrer"` |
 
-No Nexus API, API key, or `nexus_game_map`. Place link below the carousel (or alone when carousel omitted).
+No Nexus API, API key, or `nexus_game_map`.
 
 ### Regression checks
 
-- [ ] Each subsection independent; empty carousels omitted (Mods section still renders with Nexus link when `mods` empty).
-- [ ] Cards use batched payload from data layer.
-- [ ] Mods carousel shows IGDB mod games when `related.mods` has items.
-- [ ] Nexus link is static search URL only; opens in new tab.
-- [ ] No “Coming soon” mods placeholder; no Nexus API or env vars.
+- [ ] Sections render in the table's order; all but Mods hide when empty.
+- [ ] Main game row appears on a DLC / port / edition page and links back to the parent.
+- [ ] Similar games is the **last** row on the page.
+- [ ] Cards use batched payload from data layer; no card appears in two rows.
+- [ ] Mods row shows the Nexus tile first, then IGDB mod games.
+- [ ] Nexus link is a static search URL; opens in a new tab.
 
 ---
 
@@ -356,14 +366,12 @@ v1.1: sync to Supabase for authed users cross-device.
 
 ### Similar games
 
-- Source: `similar_games` → GameCard row.
-- Section title: “Similar games”.
+Lives at the **bottom of Related content**, not here — see [§5](#5-related-content-related).
 
 ### Regression checks
 
 - [ ] Recent list updates on page visit (client effect).
 - [ ] Current game excluded from recent.
-- [ ] Similar row renders from IGDB ids.
 
 ---
 
@@ -401,7 +409,7 @@ Use Supabase session from [ludi-project](../ludi-project/SKILL.md).
 
 | Gap | Notes |
 |-----|--------|
-| IGDB mods carousel | `related.mods` empty; Mods subsection shows **Nexus outbound link** only ([ludi-data-game](../ludi-data-game/SKILL.md)) |
+| Related “load more” | Rows hard-cap at 30 cards ([ludi-data-game](../ludi-data-game/SKILL.md)) |
 | Recent games | `localStorage` only—not Supabase sync |
 | Lenis, slug URLs | [v1.1 backlog](../ludi-decisions/SKILL.md#v11-backlog) |
 | Framer scroll-reveal | Spec’d in sections below; not wired in `GamePageClient` yet (dependency only) |
@@ -421,7 +429,8 @@ Use Supabase session from [ludi-project](../ludi-project/SKILL.md).
 | Comments | Plain text |
 | Hero cover | Separate static cover + carousel |
 | Mobile buy | Stacked cards |
-| Mods | v1: Nexus outbound link when carousel empty; IGDB mod cards → follow-up (Query F) |
+| Mods | Nexus tile leads the row; IGDB mod children follow (Query F, shipped) |
+| Related order | Main game first, similar games last |
 
 ---
 

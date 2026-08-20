@@ -172,16 +172,47 @@ fields image_id;
 
 ### Query C — Related game cards (1 request)
 
-Collect all unique IDs from: `similar_games`, `dlcs`, `expansions`, `bundles`, `ports`, `remakes`, `remasters`, `standalone_expansions`, `expanded_games`, `forks`, `parent_game`, `version_parent`.
+Collect all unique IDs from: `parent_game`, `version_parent`, `expansions`, `standalone_expansions`, `dlcs`, `bundles`, `ports`, `remakes`, `remasters`, `expanded_games`, `forks`, `similar_games` — **in that order**, so the cap truncates the tail (similar games) rather than the parent link.
 
 ```
 where id = ({ids});
-fields id, name, slug, cover.image_id, first_release_date, game_type.type,
+fields id, name, slug, cover.image_id, first_release_date,
+  game_type.id, game_type.type,
   rating, aggregated_rating, rating_count, aggregated_rating_count;
-limit 50;
+limit 100;
 ```
 
 Split into buckets in application layer by membership in each array from Query A.
+
+### Query F — Reverse children (1 request, on cache miss)
+
+**IGDB has no forward array for mods, updates, editions, episodes, seasons or packs** — requesting `mods` / `updates` / `editions` / `episodes` / `seasons` / `packs` / `child_games` returns **400 Invalid Field** (verified against the live API). Those relations only exist the other way round: the child carries `parent_game` (or `version_parent` for editions) and declares what it is through `game_type`.
+
+```
+where parent_game = {igdbId} | version_parent = {igdbId};
+fields id, name, slug, cover.image_id, first_release_date,
+  game_type.id, game_type.type,
+  rating, aggregated_rating, rating_count, aggregated_rating_count,
+  parent_game, version_parent, version_title;
+sort first_release_date asc;
+limit 200;
+```
+
+Rows are stored raw on the cache payload as `_children`, so a warm load still makes **one** related request (Query C) rather than two. Child counts are long-tailed — Skyrim has 36, Minecraft 274 — hence the 200 cap plus a per-bucket cap of 30.
+
+**`game_type` ids** (from `/v4/game_types`, mirrored in `src/lib/igdb/game-type-ids.json`):
+
+| id | Type | id | Type | id | Type |
+|----|------|----|------|----|------|
+| 0 | Main Game | 5 | Mod | 10 | Expanded Game |
+| 1 | DLC | 6 | Episode | 11 | Port |
+| 2 | Expansion | 7 | Season | 12 | Fork |
+| 3 | Bundle | 8 | Remake | 13 | Pack / Addon |
+| 4 | Standalone Expansion | 9 | Remaster | 14 | Update |
+
+**Bucketing:** `version_parent === igdbId` → `editions` (regardless of type); otherwise map `game_type.id` through `CHILD_TYPE_BUCKET` in `load-game-page.ts`. Main Game children with no version link are skipped.
+
+**Dedupe:** a game can hold several relations at once — Skyrim's *Legendary Edition* is in `bundles` **and** is a version child. Buckets are filled in render order and claim ids as they go, so each card appears exactly once, in the most specific row.
 
 ### Query D — Time to beat (optional 4th call)
 
@@ -267,17 +298,11 @@ Merge store URLs from IGDB `websites` + `external_games` (PlayStation Store, Xbo
 
 ## Mods (IGDB)
 
-There is **no** `mods` field on `/v4/games`. Mod entries are separate games with `game_type` = Mod (see [ludi-data-search](../ludi-data-search/SKILL.md) “Mods & community”), often linked via `parent_game`.
+There is **no** `mods` field on `/v4/games` — requesting it returns 400. Mod entries are separate games with `game_type` = Mod (id 5), linked via `parent_game` (see [ludi-data-search](../ludi-data-search/SKILL.md) “Mods & community”).
 
-| Step | Detail |
-|------|--------|
-| Query A | Do **not** request `mods` — IGDB returns 400. |
-| Optional Query F | `where parent_game = {igdbId} & game_type = ({ids from `src/lib/igdb/game-type-ids.json` → `mod`});` then card fields like Query C. |
-| Normalize | Bucket into `related.mods: GameCardPayload[]` from Query F results; until implemented, return `mods: []`. |
+**Shipped:** [Query F](#query-f--reverse-children-1-request-on-cache-miss) fills `related.mods`. Skyrim returns 27.
 
-**v1 (shipped):** `related.mods` is always empty; game page shows Nexus link only ([ludi-pages-game](../ludi-pages-game/SKILL.md)). IGDB mods carousel = optional follow-up (Query F).
-
-**Nexus:** Not a data source. Pages skill may link to Nexus site search by game `name` only (static URL, no server call). Do **not** add `nexus_game_map` or any Nexus-related Supabase table.
+**Nexus:** Not a data source. The pages skill links to Nexus site search by game `name` only (static URL, no server call). Do **not** add `nexus_game_map` or any Nexus-related Supabase table.
 
 ---
 
@@ -335,22 +360,28 @@ type GameCardPayload = {
   contentType: string | null;      // game_type.type label
 };
 
-type RelatedBuckets = {
-  similar: GameCardPayload[];
-  dlcs: GameCardPayload[];
-  expansions: GameCardPayload[];
-  standaloneExpansions: GameCardPayload[];
-  bundles: GameCardPayload[];
-  ports: GameCardPayload[];
-  remakes: GameCardPayload[];
-  remasters: GameCardPayload[];
-  expandedGames: GameCardPayload[];
-  forks: GameCardPayload[];
-  mods: GameCardPayload[];
-  parentGame: GameCardPayload | null;
-  versionParent: GameCardPayload | null;
-  // other buckets per Query A arrays as implemented
-};
+/* Keys and order match RELATED_ORDER in load-game-page.ts, which is also the
+   page's render order. Standalone expansions fold into `expansions`; parent_game
+   and version_parent share the `parent` bucket. */
+type RelatedBuckets = Record<
+  | "parent"     // main game — leads, so a child page can navigate back
+  | "editions"   // version children
+  | "expansions" // expansions + standalone_expansions
+  | "dlcs"
+  | "packs"      // Pack / Addon children
+  | "episodes"
+  | "seasons"
+  | "updates"
+  | "bundles"
+  | "ports"
+  | "remakes"
+  | "remasters"
+  | "expanded"
+  | "forks"
+  | "mods"
+  | "similar",   // trails — the only bucket that is not the same game
+  GameCardPayload[]
+>;
 ```
 
 `GameCardPayload` extended fields: [ludi-components-game-card](../ludi-components-game-card/SKILL.md). Search and related-card loaders must populate all card fields.
@@ -412,11 +443,12 @@ Prefer organization matching user region (ESRB for US, PEGI for EU, etc.); fallb
 
 ---
 
-## Related ID batching (v1)
+## Related ID batching
 
 - Collect related IDs from Query A arrays; **dedupe**.
-- **Cap at 50 IDs** per `POST /v4/games` batch (IGDB body size). Priority order: similar, dlcs, expansions, then others per product need.
-- Overflow IDs → v1.1 per-carousel “load more” or omit with log.
+- **Cap at 100 IDs** per `POST /v4/games` batch (`FORWARD_ID_LIMIT`). Priority order: parents first, then expansions → dlcs → …, **similar last** so the tail is what gets truncated.
+- Query F children are capped at **200** rows (`CHILD_LIMIT`), each bucket at **30** cards (`BUCKET_LIMIT`).
+- Overflow → v1.1 per-carousel “load more” or omit with log.
 
 ---
 
@@ -459,7 +491,7 @@ Stream sections with React `Suspense` boundaries per pages skill.
 
 | Gap | Notes |
 |-----|--------|
-| `related.mods` IGDB carousel | Always `[]`; Nexus link only on game page UI |
+| Related overflow | Buckets hard-cap at 30 cards; no “load more” |
 | Materialized `game_ratings` avg | Query on load today |
 | Slug URLs, accessibility data source | [v1.1 backlog](../ludi-decisions/SKILL.md#v11-backlog) |
 
@@ -470,4 +502,5 @@ Stream sections with React `Suspense` boundaries per pages skill.
 | Topic | Decision |
 |-------|----------|
 | `game_ratings` avg | Query on load v1; materialized → v1.1 |
-| Related ID cap | **50** per batch ([ludi-decisions](../ludi-decisions/SKILL.md)) |
+| Related ID cap | **100** forward ids per batch, **200** reverse children, **30** cards per bucket |
+| Mods / updates / editions / episodes / seasons / packs | Reverse [Query F](#query-f--reverse-children-1-request-on-cache-miss) — no forward array exists |

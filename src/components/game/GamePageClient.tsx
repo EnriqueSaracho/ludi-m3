@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { igdbImageUrl } from "@/lib/igdb/images";
 import { addRecentGame } from "@/lib/game/recent-games";
 import { GameRow } from "@/components/game-card/GameRow";
+import { ExternalLinkCard } from "@/components/game-card/ExternalLinkCard";
 import { MediaStrip } from "@/components/game/MediaStrip";
 import {
   buildGameMedia,
@@ -48,17 +49,27 @@ type Props = {
   platforms: string[];
 };
 
-/** `capitalize` turns the bucket keys into "Dlcs"; these are the real labels. */
-const RELATED_LABELS: Record<string, string> = {
-  similar: "Similar games",
-  dlcs: "DLC",
-  expansions: "Expansions",
-  bundles: "Bundles",
-  ports: "Ports",
-  remakes: "Remakes",
-  remasters: "Remasters",
-  mods: "Mods",
-};
+/** Rendered in this order: the main game first so a DLC or edition page can
+ *  navigate back to it, similar games last because they are the only bucket
+ *  that is not the same game. Keys and order mirror RELATED_ORDER in
+ *  src/lib/game/load-game-page.ts. Mods are pulled out of the loop — that row
+ *  renders even when empty, to carry the Nexus tile. */
+const RELATED_SECTIONS: Array<{ key: string; label: string }> = [
+  { key: "parent", label: "Main game" },
+  { key: "editions", label: "Editions" },
+  { key: "expansions", label: "Expansions" },
+  { key: "dlcs", label: "DLC" },
+  { key: "packs", label: "Packs & add-ons" },
+  { key: "episodes", label: "Episodes" },
+  { key: "seasons", label: "Seasons" },
+  { key: "updates", label: "Updates" },
+  { key: "bundles", label: "Bundles" },
+  { key: "ports", label: "Ports" },
+  { key: "remakes", label: "Remakes" },
+  { key: "remasters", label: "Remasters" },
+  { key: "expanded", label: "Expanded games" },
+  { key: "forks", label: "Forks" },
+];
 
 /** Independent status toggles — a game can carry any combination at once. */
 const STATUS_OPTIONS: Array<{ value: PlayStatus; label: string }> = [
@@ -677,29 +688,42 @@ export function GamePageClient({
 
       {/* Related */}
       <section id="related" className="shell scroll-mt-20 space-y-12 pb-20">
-        {Object.entries(data.related).map(([key, cards]) =>
-          cards.length > 0 ? (
+        {RELATED_SECTIONS.map(({ key, label }) => {
+          const cards = data.related[key] ?? [];
+          return cards.length > 0 ? (
             <Reveal key={key}>
-              <h2 className="mb-5 text-xl font-light tracking-tight">
-                {RELATED_LABELS[key] ?? key}
-              </h2>
+              <h2 className="mb-5 text-xl font-light tracking-tight">{label}</h2>
               <GameRow games={cards} />
             </Reveal>
-          ) : null,
-        )}
+          ) : null;
+        })}
 
-        <div>
-          <h2 className="mb-3 text-xl font-light tracking-tight">Mods</h2>
-          <a
-            href="https://www.nexusmods.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[0.8125rem] text-brand-tint transition-colors hover:text-white"
-          >
-            Browse mods on Nexus Mods
-            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </a>
-        </div>
+        {/* Always shown: IGDB catalogues only a slice of any game's mods, so the
+            Nexus tile is worth offering even when that slice is empty. */}
+        <Reveal>
+          <h2 className="mb-5 text-xl font-light tracking-tight">Mods</h2>
+          <GameRow
+            games={data.related.mods ?? []}
+            leading={
+              <ExternalLinkCard
+                href={`https://www.nexusmods.com/search/?BH%5Bsearch%5D=${encodeURIComponent(
+                  game.name,
+                )}`}
+                title="Nexus Mods"
+                subtitle="Search mods"
+              />
+            }
+          />
+        </Reveal>
+
+        {(data.related.similar ?? []).length > 0 && (
+          <Reveal>
+            <h2 className="mb-5 text-xl font-light tracking-tight">
+              Similar games
+            </h2>
+            <GameRow games={data.related.similar} />
+          </Reveal>
+        )}
       </section>
     </article>
   );
