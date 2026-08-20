@@ -16,6 +16,16 @@ import { createClient } from "@/lib/supabase/server";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** Bump whenever CORE_FIELDS changes shape.
+ *
+ *  `game_cache` stores the raw IGDB response, so newly requested fields are
+ *  missing from existing rows until their 24h TTL lapses. Gating the cache read
+ *  on this retires stale-shaped payloads at deploy time instead. */
+const PAYLOAD_VERSION = 2;
+
+/* `videos` needs its sub-fields spelled out — bare, IGDB returns raw numeric
+   ids. `artworks.artwork_type` is what separates key art from concept art and
+   from logos/icons/covers (see src/lib/game/media.ts). */
 const CORE_FIELDS = `id, name, slug, summary, storyline, first_release_date,
   cover.image_id, game_type.type,
   genres.name, themes.name, platforms.name,
@@ -25,7 +35,8 @@ const CORE_FIELDS = `id, name, slug, summary, storyline, first_release_date,
   external_games.uid, external_games.external_game_source.name,
   rating, rating_count, aggregated_rating, aggregated_rating_count,
   similar_games, dlcs, expansions, bundles, ports, remakes, remasters,
-  forks, videos, screenshots.image_id, artworks.image_id`;
+  forks, videos.video_id, videos.name,
+  screenshots.image_id, artworks.image_id, artworks.artwork_type`;
 
 export type GamePageData = {
   game: Record<string, unknown>;
@@ -69,7 +80,8 @@ async function fetchFromIgdb(igdbId: number) {
     "games",
     `where id = ${igdbId};\nfields ${CORE_FIELDS};`,
   );
-  return games[0] ?? null;
+  const game = games[0];
+  return game ? { ...game, _v: PAYLOAD_VERSION } : null;
 }
 
 async function fetchRelatedCards(ids: number[]): Promise<GameCardPayload[]> {
@@ -117,12 +129,15 @@ export async function loadGamePage(
   let game: Record<string, unknown> | null = null;
   let steamAppId: number | null = null;
 
+  const cachedPayload = cached?.payload as Record<string, unknown> | null;
+
   if (
-    cached?.payload &&
-    cached.fetched_at &&
+    cachedPayload &&
+    cachedPayload._v === PAYLOAD_VERSION &&
+    cached?.fetched_at &&
     Date.now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS
   ) {
-    game = cached.payload as Record<string, unknown>;
+    game = cachedPayload;
     steamAppId = cached.steam_appid;
   }
 

@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
         hostname: "images.igdb.com",
         pathname: "/igdb/image/upload/**",
       },
+      // YouTube poster frames for the trailers in the game-page media rail.
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        pathname: "/vi/**",
+      },
     ],
   },
   webpack: (config, { dev }) => {

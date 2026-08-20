@@ -3,12 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { Bookmark, ExternalLink, Star } from "lucide-react";
+import { Bookmark, Check, ChevronDown, ExternalLink, Star } from "lucide-react";
 import { Spinner } from "@/components/loading/Spinner";
+import { cn } from "@/lib/utils";
 import { igdbImageUrl } from "@/lib/igdb/images";
 import { addRecentGame } from "@/lib/game/recent-games";
 import { GameRow } from "@/components/game-card/GameRow";
-import { ScreenshotStrip } from "@/components/game/ScreenshotStrip";
+import { MediaStrip } from "@/components/game/MediaStrip";
+import {
+  buildGameMedia,
+  type IgdbArtwork,
+  type IgdbScreenshot,
+  type IgdbVideo,
+} from "@/lib/game/media";
 import { AddToListMenu } from "@/components/game-card/AddToListMenu";
 import { Reveal } from "@/components/motion/Reveal";
 import { addToList, postComment, rateGame, removeListItem } from "@/lib/lists/actions";
@@ -75,8 +82,9 @@ type IgdbGame = {
   aggregated_rating?: number;
   first_release_date?: number;
   genres?: Array<{ name?: string }>;
-  screenshots?: Array<{ image_id?: string }>;
-  artworks?: Array<{ image_id?: string }>;
+  screenshots?: IgdbScreenshot[];
+  artworks?: IgdbArtwork[];
+  videos?: IgdbVideo[];
 };
 
 export function GamePageClient({
@@ -102,14 +110,12 @@ export function GamePageClient({
   const [commentPending, startCommentTransition] = useTransition();
 
   const coverUrl = igdbImageUrl(game.cover?.image_id, "cover_big");
-  const backdropId =
-    game.artworks?.[0]?.image_id ?? game.screenshots?.[0]?.image_id ?? null;
-  const backdropUrl = igdbImageUrl(backdropId, "1080p");
-  const screenshotIds =
-    game.screenshots
-      ?.map((s) => s.image_id)
-      .filter((id): id is string => !!id) ?? [];
-  const isSaved = lists.some((l) => l.checked);
+  /* One pass ranks the artwork; the best of it becomes the backdrop and the
+     rest falls into the rail behind the trailers and screenshots. */
+  const media = buildGameMedia(game);
+  const backdropUrl = igdbImageUrl(media.backdropImageId, "1080p");
+  const savedCount = lists.filter((l) => l.checked).length;
+  const isSaved = savedCount > 0;
   const releaseYear = game.first_release_date
     ? new Date(game.first_release_date * 1000).getUTCFullYear()
     : null;
@@ -248,7 +254,7 @@ export function GamePageClient({
         </div>
       </header>
 
-      <ScreenshotStrip imageIds={screenshotIds} gameName={game.name} />
+      <MediaStrip items={media.items} gameName={game.name} />
 
       {/* About: cover and personal controls on the left, prose centred right. */}
       <section id="about" className="shell scroll-mt-20 py-16 md:py-20">
@@ -268,17 +274,39 @@ export function GamePageClient({
               </div>
 
               {isAuthed ? (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
+                  {/* Save is the one filled control in the column; the status
+                      ladder below it stays quiet so the hierarchy reads at a
+                      glance. */}
                   <Button
                     variant={isSaved ? "default" : "outline"}
-                    className="w-full"
+                    className={cn(
+                      "h-11 w-full justify-start gap-2.5 px-3.5",
+                      isSaved &&
+                        "shadow-[0_14px_34px_-16px_var(--accent)] ring-1 ring-inset ring-white/15",
+                    )}
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
                     onClick={() => setMenuOpen(true)}
                   >
                     <Bookmark
                       className={isSaved ? "fill-current" : undefined}
                       strokeWidth={1.5}
                     />
-                    {isSaved ? "Saved" : "Save to list"}
+                    <span>{isSaved ? "Saved" : "Save to list"}</span>
+                    {isSaved && (
+                      <span className="ml-auto text-[0.6875rem] tabular-nums text-white/55">
+                        {savedCount}
+                      </span>
+                    )}
+                    <ChevronDown
+                      strokeWidth={1.5}
+                      className={cn(
+                        "shrink-0 opacity-50 transition-transform duration-200",
+                        isSaved ? "ml-1.5" : "ml-auto",
+                        menuOpen && "rotate-180",
+                      )}
+                    />
                   </Button>
                   <AddToListMenu
                     igdbId={igdbId}
@@ -288,8 +316,11 @@ export function GamePageClient({
                     onListsChange={setLists}
                   />
 
-                  <div className="flex flex-wrap gap-2">
-                    {STATUS_OPTIONS.map(({ value, label }) => {
+                  {/* Status ladder. One well, three rows — the labels never get
+                      squeezed the way three side-by-side pills did, and an
+                      accent rail marks the active ones down the left edge. */}
+                  <div className="overflow-hidden rounded-md border border-hairline bg-sunken/60">
+                    {STATUS_OPTIONS.map(({ value, label }, i) => {
                       const checked = lists.some(
                         (l) =>
                           l.system_key === PLAY_STATUS_TO_LIST[value] &&
@@ -297,18 +328,52 @@ export function GamePageClient({
                       );
                       const isPending = pendingStatus === value;
                       return (
-                        <Button
+                        <button
                           key={value}
                           type="button"
-                          size="sm"
-                          variant={checked ? "default" : "outline"}
-                          className="flex-1"
                           aria-pressed={checked}
                           disabled={isPending}
                           onClick={() => toggleStatus(value)}
+                          className={cn(
+                            "group relative flex w-full cursor-pointer items-center gap-3 py-2.5 pl-4 pr-3 text-left text-[0.8125rem] transition-colors duration-200 disabled:cursor-not-allowed",
+                            i > 0 && "border-t border-hairline",
+                            checked
+                              ? "bg-brand/[0.09] font-medium text-white"
+                              : "text-copy hover:bg-raised/50 hover:text-white",
+                          )}
                         >
-                          {isPending ? <Spinner size="sm" /> : label}
-                        </Button>
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "absolute inset-y-0 left-0 w-[2px] origin-center bg-brand transition-transform duration-300 ease-out",
+                              checked ? "scale-y-100" : "scale-y-0",
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition-colors duration-200",
+                              checked
+                                ? "border-brand bg-brand"
+                                : "border-hairline-strong group-hover:border-brand-tint/50",
+                            )}
+                          >
+                            {isPending ? (
+                              <Spinner
+                                size="sm"
+                                className="h-3 w-3 text-current"
+                              />
+                            ) : (
+                              <Check
+                                strokeWidth={3}
+                                className={cn(
+                                  "h-3 w-3 text-white transition-transform duration-200",
+                                  checked ? "scale-100" : "scale-0",
+                                )}
+                              />
+                            )}
+                          </span>
+                          {label}
+                        </button>
                       );
                     })}
                   </div>
@@ -330,8 +395,11 @@ export function GamePageClient({
                   )}
                 </div>
               ) : (
-                <Button asChild className="w-full">
-                  <Link href={`/login?next=/game/${igdbId}`}>Sign in to save</Link>
+                <Button asChild className="h-11 w-full gap-2.5">
+                  <Link href={`/login?next=/game/${igdbId}`}>
+                    <Bookmark strokeWidth={1.5} />
+                    Sign in to save
+                  </Link>
                 </Button>
               )}
             </div>
