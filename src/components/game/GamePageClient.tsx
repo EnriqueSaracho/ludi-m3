@@ -82,6 +82,11 @@ type IgdbGame = {
   aggregated_rating?: number;
   first_release_date?: number;
   genres?: Array<{ name?: string }>;
+  involved_companies?: Array<{
+    company?: { name?: string };
+    developer?: boolean;
+    publisher?: boolean;
+  }>;
   screenshots?: IgdbScreenshot[];
   artworks?: IgdbArtwork[];
   videos?: IgdbVideo[];
@@ -120,6 +125,18 @@ export function GamePageClient({
   const releaseYear = game.first_release_date
     ? new Date(game.first_release_date * 1000).getUTCFullYear()
     : null;
+  /* Publishers and porting houses share `involved_companies`, so the developer
+     flag is the only thing that marks an author. IGDB also repeats a studio per
+     region, hence the dedupe. Two names is the ceiling — past that the byline
+     stops being a credit and turns into a credits roll. */
+  const developers = Array.from(
+    new Set(
+      (game.involved_companies ?? [])
+        .filter((c) => c.developer)
+        .map((c) => c.company?.name)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ).slice(0, 2);
 
   useEffect(() => {
     setLists(listMembership);
@@ -194,8 +211,12 @@ export function GamePageClient({
   return (
     <article>
       {/* Hero: wide art with the whole title block seated in the bottom-left,
-          where the scrim guarantees dark ground under white type. A hairline
-          rule ties the genres and the scores into one foot. */}
+          where the scrim guarantees dark ground under white type.
+
+          The hairline rule is a baseline, not a divider: studio and title stack
+          on top of it as a masthead, and everything below it is metadata —
+          year, type, genre, scores. Nothing goes between the title and the
+          rule; the title's contact with it is what holds the block together. */}
       <header className="grain relative isolate flex h-[80vh] max-h-[52rem] min-h-[32rem] w-full flex-col justify-end overflow-hidden bg-void">
         {backdropUrl && (
           <Image
@@ -218,9 +239,15 @@ export function GamePageClient({
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-void/70 via-void/15 to-transparent" />
 
         <div className="shell-wide pb-10 md:pb-12">
-          <p className="text-[0.6875rem] uppercase tracking-[0.2em] text-white/55">
-            {[game.game_type?.type, releaseYear].filter(Boolean).join(" · ")}
-          </p>
+          {/* The imprint. Caps and tracked-out is the right register *here*
+              specifically — above a title it reads as authorship, the way a
+              label sits above a record. The same string set below the rule
+              would read as one more filter facet. */}
+          {developers.length > 0 && (
+            <p className="text-[0.6875rem] uppercase tracking-[0.2em] text-white/60">
+              {developers.join(" · ")}
+            </p>
+          )}
           <h1 className="mt-3 max-w-3xl text-balance text-4xl font-light leading-[1.05] tracking-tight text-white drop-shadow-[0_2px_16px_rgb(0_0_0/0.7)] md:text-5xl lg:text-[3.25rem]">
             {game.name}
           </h1>
@@ -228,15 +255,25 @@ export function GamePageClient({
           <div className="mt-7 h-px w-full bg-white/15" />
 
           <div className="mt-5 flex flex-wrap items-end justify-between gap-6">
-            <div className="flex flex-wrap gap-2">
-              {game.genres?.slice(0, 4).map((g) => (
-                <span
-                  key={g.name}
-                  className="rounded-sm border border-white/20 px-2 py-1 text-[0.6875rem] uppercase tracking-wider text-white/70"
-                >
-                  {g.name}
-                </span>
-              ))}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              {/* Year and type are facets, same class of thing as genre, so
+                  they belong with the chips rather than up in the imprint.
+                  Left unboxed: a bordered "2015" would read as clickable. */}
+              {(releaseYear || game.game_type?.type) && (
+                <p className="text-[0.6875rem] uppercase tracking-[0.2em] text-white/45">
+                  {[releaseYear, game.game_type?.type].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {game.genres?.slice(0, 4).map((g) => (
+                  <span
+                    key={g.name}
+                    className="rounded-sm border border-white/20 px-2 py-1 text-[0.6875rem] uppercase tracking-wider text-white/70"
+                  >
+                    {g.name}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-end gap-8">
