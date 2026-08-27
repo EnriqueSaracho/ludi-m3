@@ -23,12 +23,12 @@ async function itadFetch(path: string, init?: RequestInit) {
 export async function lookupItadGame(steamAppId: number): Promise<string | null> {
   const data = (await itadFetch(
     `/games/lookup/v1?appid=${steamAppId}`,
-  )) as { id?: string };
-  return data.id ?? null;
+  )) as { found?: boolean; game?: { id?: string } };
+  return data.game?.id ?? null;
 }
 
 export type ItadPriceDeal = {
-  shop: { id: string; name: string };
+  shop: { id: number; name: string };
   price: { amount: number; amountInt: number; currency: string };
   regular: { amount: number; amountInt: number; currency: string };
   url: string;
@@ -43,11 +43,8 @@ export async function fetchItadPrices(
       const data = (await itadFetch(`/games/prices/v3?country=${country}`, {
         method: "POST",
         body: JSON.stringify([itadId]),
-      })) as Record<
-        string,
-        { list?: ItadPriceDeal[] }
-      >;
-      return data[itadId]?.list ?? [];
+      })) as Array<{ id: string; deals?: ItadPriceDeal[] }>;
+      return data.find((entry) => entry.id === itadId)?.deals ?? [];
     },
     [`itad-prices-${itadId}-${country}`],
     { revalidate: 3600 },

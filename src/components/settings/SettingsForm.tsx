@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { updateProfile } from "@/lib/lists/actions";
+import { COUNTRIES } from "@/lib/country/countries";
+import {
+  COUNTRY_COOKIE,
+  COUNTRY_COOKIE_MAX_AGE,
+} from "@/lib/country/detect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,20 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const COUNTRIES = [
-  "US",
-  "GB",
-  "CA",
-  "AU",
-  "DE",
-  "FR",
-  "ES",
-  "IT",
-  "NL",
-  "BR",
-  "JP",
-];
 
 type Props = {
   email: string;
@@ -48,7 +39,7 @@ export function SettingsForm({ email, preferredCountry: initial }: Props) {
     setMessage(null);
     try {
       await updateProfile({ preferred_country: value });
-      document.cookie = `ludi_country=${value};path=/;max-age=31536000;SameSite=Lax`;
+      document.cookie = `${COUNTRY_COOKIE}=${value};path=/;max-age=${COUNTRY_COOKIE_MAX_AGE};SameSite=Lax`;
       setMessage("Country preference saved.");
     } catch (e) {
       setCountry(previous);
@@ -96,8 +87,8 @@ export function SettingsForm({ email, preferredCountry: initial }: Props) {
           </SelectTrigger>
           <SelectContent>
             {COUNTRIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
+              <SelectItem key={c.code} value={c.code}>
+                {c.name}
               </SelectItem>
             ))}
           </SelectContent>

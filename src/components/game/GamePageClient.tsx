@@ -18,6 +18,9 @@ import {
   type IgdbVideo,
 } from "@/lib/game/media";
 import { AddToListMenu } from "@/components/game-card/AddToListMenu";
+import { RegionPicker } from "@/components/game/RegionPicker";
+import { countryName } from "@/lib/country/countries";
+import { formatPrice } from "@/lib/itad/format";
 import { Reveal } from "@/components/motion/Reveal";
 import { addToList, postComment, rateGame, removeListItem } from "@/lib/lists/actions";
 import type { GamePageData } from "@/lib/game/load-game-page";
@@ -113,6 +116,20 @@ export function GamePageClient({
   platforms,
 }: Props) {
   const game = data.game as IgdbGame;
+
+  /* A region almost always prices every shop in one currency, so naming it once
+     in the header keeps the rows clean. It also defuses the cross-region trap:
+     several countries (Mexico and much of LATAM) are billed in USD, and USD is
+     the one currency Intl renders with a bare "$" — so a Canadian switching to
+     Mexico sees CA$55.99 become $39.99 and reads it as a sale. The code beside
+     the region changes at the same moment the numbers do.
+
+     Mixed currencies in one region are rare but possible; then the header claim
+     would be a lie, so the rows carry their own codes instead. */
+  const priceCurrencies = Array.from(
+    new Set(data.prices.map((d) => d.price.currency)),
+  );
+  const priceCurrency = priceCurrencies.length === 1 ? priceCurrencies[0] : null;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [lists, setLists] = useState(listMembership);
@@ -496,14 +513,35 @@ export function GamePageClient({
             <h2 className="text-center text-2xl font-light tracking-tight">
               Get the Game
             </h2>
-            <p className="mt-2 text-center text-[0.8125rem] text-muted-foreground">
-              PC prices for {country}
+            {/* The picker doubles as the region label — a separate "PC prices
+                for Mexico" line would just restate whatever it already shows. */}
+            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[0.8125rem] text-muted-foreground">
+              <span>PC prices for</span>
+              <RegionPicker country={country} isAuthed={isAuthed} />
+              {priceCurrency && (
+                <>
+                  <span aria-hidden className="text-hairline">
+                    &middot;
+                  </span>
+                  <span
+                    className="font-medium tracking-[0.09em] text-copy"
+                    title={`Prices shown in ${priceCurrency}`}
+                  >
+                    {priceCurrency}
+                  </span>
+                </>
+              )}
             </p>
 
             {data.prices.length === 0 ? (
-              <p className="mt-10 text-center text-muted-foreground">
-                No PC prices available for this region.
-              </p>
+              <div className="mx-auto mt-10 max-w-2xl rounded-md border border-dashed border-hairline px-6 py-10 text-center">
+                <p className="text-[0.9375rem] text-copy">
+                  No PC prices listed for {countryName(country)}.
+                </p>
+                <p className="mt-1.5 text-[0.8125rem] text-muted-foreground">
+                  This game may not be sold in that region — try another above.
+                </p>
+              </div>
             ) : (
               <ul className="mx-auto mt-10 max-w-2xl divide-y divide-hairline overflow-hidden rounded-md border border-hairline bg-elevated">
                 {data.prices.map((deal, i) => (
@@ -522,7 +560,12 @@ export function GamePageClient({
                         />
                       </span>
                       <span className="text-sm font-medium tabular-nums text-brand-tint">
-                        {deal.price.amount.toFixed(2)} {deal.price.currency}
+                        {formatPrice(deal.price.amount, deal.price.currency)}
+                        {!priceCurrency && (
+                          <span className="ml-1.5 text-[0.6875rem] font-normal tracking-[0.09em] text-muted-foreground">
+                            {deal.price.currency}
+                          </span>
+                        )}
                       </span>
                     </a>
                   </li>
