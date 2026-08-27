@@ -132,7 +132,7 @@ export async function getListItemsFull(listId: string, userId: string) {
 
   const rows = await igdbFetch<IgdbGameRow[]>(
     "games",
-    `where id = (${ids.join(",")});\nfields id, name, slug, cover.image_id, first_release_date, game_type.type, rating, aggregated_rating, rating_count, aggregated_rating_count;`,
+    `where id = (${ids.join(",")});\nfields id, name, slug, cover.image_id, first_release_date, game_type.type, rating, aggregated_rating, rating_count, aggregated_rating_count;\nlimit 500;`,
   );
 
   const byId = new Map(rows.map((r) => [r.id, toGameCardPayload(r)]));
