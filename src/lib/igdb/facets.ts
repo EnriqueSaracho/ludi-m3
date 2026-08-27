@@ -1,30 +1,8 @@
 import { unstable_cache } from "next/cache";
 import { igdbFetch } from "@/lib/igdb/client";
+import { PLATFORM_PRIORITY } from "@/lib/game/platforms";
 
 export type FacetOption = { id: number; name: string };
-
-/* IGDB sorts platforms alphabetically, which buries the ones anyone filters by
-   under 1970s hardware. These float to the top of the facet list in order; the
-   rest follow alphabetically. */
-const PLATFORM_PRIORITY = [
-  "PC (Microsoft Windows)",
-  "PlayStation 5",
-  "Xbox Series X|S",
-  "Nintendo Switch 2",
-  "Nintendo Switch",
-  "PlayStation 4",
-  "Xbox One",
-  "Mac",
-  "Linux",
-  "iOS",
-  "Android",
-  "PlayStation 3",
-  "Xbox 360",
-  "Nintendo 3DS",
-  "Wii U",
-  "Wii",
-  "PlayStation Vita",
-];
 
 export async function getPlatforms(): Promise<FacetOption[]> {
   return unstable_cache(

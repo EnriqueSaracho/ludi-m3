@@ -22,6 +22,7 @@ import { RegionPicker } from "@/components/game/RegionPicker";
 import { countryName } from "@/lib/country/countries";
 import { formatPrice } from "@/lib/itad/format";
 import { classifyWebsites, type IgdbWebsite } from "@/lib/game/websites";
+import { shortPlatformName, sortPlatforms } from "@/lib/game/platforms";
 import { BrandIcon } from "@/components/icons/BrandIcon";
 import { Reveal } from "@/components/motion/Reveal";
 import { addToList, postComment, rateGame, removeListItem } from "@/lib/lists/actions";
@@ -170,6 +171,12 @@ export function GamePageClient({
         .filter((name): name is string => Boolean(name)),
     ),
   ).slice(0, 2);
+  /* Current-gen and PC first so the chip row leads with what most people are
+     scanning for; a port's decade-plus tail of legacy hardware collapses into
+     a count instead of pushing the genre chips onto a second line. */
+  const heroPlatforms = sortPlatforms(platforms);
+  const visiblePlatforms = heroPlatforms.slice(0, 4);
+  const hiddenPlatformCount = heroPlatforms.length - visiblePlatforms.length;
 
   useEffect(() => {
     setLists(listMembership);
@@ -296,6 +303,29 @@ export function GamePageClient({
                 <p className="text-[0.6875rem] uppercase tracking-[0.2em] text-white/45">
                   {[releaseYear, game.game_type?.type].filter(Boolean).join(" · ")}
                 </p>
+              )}
+              {visiblePlatforms.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {/* Filled, unlike the outlined genre chips beside them —
+                      "where" and "what kind" answer different questions and
+                      should read as different kinds of chip. */}
+                  {visiblePlatforms.map((p) => (
+                    <span
+                      key={p}
+                      className="rounded-sm bg-white/15 px-2 py-1 text-[0.6875rem] uppercase tracking-wider text-white/80"
+                    >
+                      {shortPlatformName(p)}
+                    </span>
+                  ))}
+                  {hiddenPlatformCount > 0 && (
+                    <span
+                      title={heroPlatforms.slice(4).join(", ")}
+                      className="rounded-sm bg-white/15 px-2 py-1 text-[0.6875rem] uppercase tracking-wider text-white/50"
+                    >
+                      +{hiddenPlatformCount}
+                    </span>
+                  )}
+                </div>
               )}
               <div className="flex flex-wrap gap-2">
                 {game.genres?.slice(0, 4).map((g) => (
