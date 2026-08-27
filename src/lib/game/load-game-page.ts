@@ -135,6 +135,7 @@ export type GamePageData = {
   related: Record<string, GameCardPayload[]>;
   steamAppId: number | null;
   itadId: string | null;
+  itadSlug: string | null;
   prices: ItadPriceDeal[];
   heroPrice: { amount: number; currency: string } | null;
   ludiAvgRating: number | null;
@@ -309,10 +310,13 @@ export async function loadGamePage(
   const related = bucketRelated(igdbId, game, relatedCards);
 
   let itadId: string | null = null;
+  let itadSlug: string | null = null;
   let prices: ItadPriceDeal[] = [];
   if (steamAppId) {
-    itadId = await lookupItadGame(steamAppId);
-    if (itadId) {
+    const lookup = await lookupItadGame(steamAppId);
+    if (lookup) {
+      itadId = lookup.id;
+      itadSlug = lookup.slug;
       prices = await fetchItadPrices(itadId, country);
     }
   }
@@ -377,6 +381,7 @@ export async function loadGamePage(
     related,
     steamAppId,
     itadId,
+    itadSlug,
     prices,
     heroPrice: minCurrentPrice(prices),
     ludiAvgRating,

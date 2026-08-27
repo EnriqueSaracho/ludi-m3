@@ -20,11 +20,14 @@ async function itadFetch(path: string, init?: RequestInit) {
   return res.json();
 }
 
-export async function lookupItadGame(steamAppId: number): Promise<string | null> {
+export async function lookupItadGame(
+  steamAppId: number,
+): Promise<{ id: string; slug: string } | null> {
   const data = (await itadFetch(
     `/games/lookup/v1?appid=${steamAppId}`,
-  )) as { found?: boolean; game?: { id?: string } };
-  return data.game?.id ?? null;
+  )) as { found?: boolean; game?: { id?: string; slug?: string } };
+  if (!data.game?.id || !data.game?.slug) return null;
+  return { id: data.game.id, slug: data.game.slug };
 }
 
 export type ItadPriceDeal = {

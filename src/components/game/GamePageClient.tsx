@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { Bookmark, Check, ChevronDown, ExternalLink, Star } from "lucide-react";
+import { Bookmark, Check, ChevronDown, ExternalLink, Globe, Star } from "lucide-react";
 import { Spinner } from "@/components/loading/Spinner";
 import { cn } from "@/lib/utils";
 import { igdbImageUrl } from "@/lib/igdb/images";
@@ -21,6 +21,8 @@ import { AddToListMenu } from "@/components/game-card/AddToListMenu";
 import { RegionPicker } from "@/components/game/RegionPicker";
 import { countryName } from "@/lib/country/countries";
 import { formatPrice } from "@/lib/itad/format";
+import { classifyWebsites, type IgdbWebsite } from "@/lib/game/websites";
+import { BrandIcon } from "@/components/icons/BrandIcon";
 import { Reveal } from "@/components/motion/Reveal";
 import { addToList, postComment, rateGame, removeListItem } from "@/lib/lists/actions";
 import type { GamePageData } from "@/lib/game/load-game-page";
@@ -104,6 +106,7 @@ type IgdbGame = {
   screenshots?: IgdbScreenshot[];
   artworks?: IgdbArtwork[];
   videos?: IgdbVideo[];
+  websites?: IgdbWebsite[];
 };
 
 export function GamePageClient({
@@ -130,6 +133,8 @@ export function GamePageClient({
     new Set(data.prices.map((d) => d.price.currency)),
   );
   const priceCurrency = priceCurrencies.length === 1 ? priceCurrencies[0] : null;
+
+  const { stores, reference } = classifyWebsites(game.websites);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [lists, setLists] = useState(listMembership);
@@ -572,9 +577,112 @@ export function GamePageClient({
                 ))}
               </ul>
             )}
+
+            {data.itadSlug && (
+              <p className="mx-auto mt-4 max-w-2xl text-center">
+                <a
+                  href={`https://isthereanydeal.com/game/${data.itadSlug}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground transition-colors hover:text-brand-tint"
+                >
+                  Full price history on IsThereAnyDeal
+                  <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                </a>
+              </p>
+            )}
+
+            {/* Available on: storefronts from IGDB's `websites` array. Shown
+                even when ITAD has no PC price, since a store link is still
+                useful. Xbox and Nintendo have no logo — simple-icons
+                excludes both under its "forbidden brands" policy — so those
+                two render their name as text instead. */}
+            {stores.length > 0 && (
+              <div className="mx-auto mt-12 max-w-2xl">
+                <p className="text-center text-[0.6875rem] uppercase tracking-[0.2em] text-muted-foreground">
+                  Available on
+                </p>
+                <ul className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                  {stores.map((store) => (
+                    <li key={store.key}>
+                      <a
+                        href={store.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={store.label}
+                        title={store.label}
+                        className="group flex h-14 min-w-14 items-center justify-center rounded-md border border-hairline bg-elevated px-4 text-copy transition-colors hover:border-hairline-strong hover:bg-raised"
+                        style={
+                          store.icon
+                            ? ({ "--brand-hex": `#${store.icon.hex}` } as React.CSSProperties)
+                            : undefined
+                        }
+                      >
+                        {store.icon ? (
+                          <BrandIcon
+                            icon={store.icon}
+                            className="h-7 w-7 text-muted-foreground transition-colors group-hover:text-[var(--brand-hex)]"
+                          />
+                        ) : (
+                          <span className="text-[0.8125rem] font-medium transition-colors group-hover:text-brand-tint">
+                            {store.label}
+                          </span>
+                        )}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Reveal>
         </div>
       </section>
+
+      {/* Explore: wiki, official site, socials, video — reference material
+          rather than a purchase action, so it stays quiet relative to Get
+          the Game. */}
+      {reference.length > 0 && (
+        <section id="explore" className="shell scroll-mt-20 py-16 md:py-20">
+          <Reveal className="text-center">
+            <h2 className="text-2xl font-light tracking-tight">Explore</h2>
+            <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-2.5 text-[0.8125rem]">
+              {reference.map((link, i) => (
+                <li key={link.key} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <span aria-hidden className="text-hairline">
+                      &middot;
+                    </span>
+                  )}
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-1.5 text-copy transition-colors hover:text-brand-tint"
+                    style={
+                      link.icon
+                        ? ({ "--brand-hex": `#${link.icon.hex}` } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
+                    {link.icon ? (
+                      <BrandIcon
+                        icon={link.icon}
+                        className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-[var(--brand-hex)]"
+                      />
+                    ) : (
+                      <Globe
+                        className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-brand-tint"
+                        strokeWidth={1.5}
+                      />
+                    )}
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        </section>
+      )}
 
       {/* Reviews & Ratings */}
       <section id="community" className="shell scroll-mt-20 py-16 md:py-20">
